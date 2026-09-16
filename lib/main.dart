@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/login_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Ganti dengan URL dan Anon Key proyek Supabase Anda sendiri
-  await Supabase.initialize(
-    url: 'https://cqzzrxeukcxkstdxfeiy.supabase.co/rest/v1/',
-    anonKey: 'sb_publishable_forJiulthVcRmNGHfQUO1g_1DkiL3pq',
-  );
-
+void main() {
   runApp(const MyApp());
 }
 
@@ -20,10 +11,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'ED Management',
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Supabase Auth',
-      theme: ThemeData(primarySwatch: Colors.green),
-      home: const LoginPage(),
+      theme: ThemeData(
+        fontFamily: 'sans-serif',
+        primaryColor: const Color(0xFF006B42),
+        useMaterial3: true,
+      ),
+      home: const LoginScreen(),
     );
   }
 }

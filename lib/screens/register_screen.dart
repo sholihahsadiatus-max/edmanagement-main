@@ -1,114 +1,223 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterPageState extends State<RegisterPage> {
-  final _namaController = TextEditingController();
-  final _hpController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _alamatController = TextEditingController();
-  bool _isLoading = false;
+class _RegisterScreenState extends State<RegisterScreen> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
 
-  Future<void> _register() async {
-    setState(() => _isLoading = true);
-    try {
-      // 1. Mendaftarkan user baru ke Supabase Auth
-      final authResponse = await Supabase.instance.client.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-
-      final user = authResponse.user;
-
-      if (user != null) {
-        // 2. Memasukkan data profil tambahan ke tabel 'profiles' menggunakan User ID yang didapatkan
-        await Supabase.instance.client.from('profiles').insert({
-          'id': user.id,
-          'nama': _namaController.text.trim(),
-          'no_handphone': _hpController.text.trim(),
-          'alamat_lengkap': _alamatController.text.trim(),
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Registrasi Berhasil! Silakan cek email untuk verifikasi jika diaktifkan.')),
-        );
-        Navigator.pop(context); // Kembali ke halaman Login
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal Registrasi: ${e.toString()}')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
+  bool _obscureText = true;
+  final Color primaryColor = const Color(0xFF006B42);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, iconTheme: const IconThemeData(color: Colors.black)),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                const Icon(Icons.shopping_bag_outlined, size: 80, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text('Selamat Datang!', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 24),
-                
-                TextField(
-                  controller: _namaController,
-                  decoration: const InputDecoration(labelText: 'Nama', border: OutlineInputBorder()),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Navigation Bar Atas (Tombol Kembali & Panah Kanan)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: () {
+                      Navigator.pop(context); // Kembali ke LoginScreen
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward, color: Colors.black),
+                    onPressed: () {
+                      // Aksi navigasi ke halaman berikutnya jika ada
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Icon Bag/Logo
+              Center(
+                child: Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 90,
+                  color: primaryColor,
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _hpController,
-                  decoration: const InputDecoration(labelText: 'No handphone', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+
+              // Judul "Selamat Datang !"
+              const Text(
+                'Selamat Datang !',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 28),
+
+              // 1. Input Nama
+              const Text(
+                'Nama',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _nameController,
+                decoration: _inputDecoration(''),
+              ),
+              const SizedBox(height: 16),
+
+              // 2. Input No handphone
+              const Text(
+                'No handphone',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _alamatController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Alamat Lengkap', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: _inputDecoration(''),
+              ),
+              const SizedBox(height: 16),
+
+              // 3. Input Email
+              const Text(
+                'Email',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
                 ),
-                const SizedBox(height: 24),
-                
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff2E7D32)),
-                    onPressed: _isLoading ? null : _register,
-                    child: _isLoading 
-                        ? const CircularProgressIndicator(color: Colors.white) 
-                        : const Text('DAFTAR', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: _inputDecoration(''),
+              ),
+              const SizedBox(height: 16),
+
+              // 4. Input Password
+              const Text(
+                'Password',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscureText,
+                decoration: _inputDecoration('Masukkan password').copyWith(
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureText
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureText = !_obscureText;
+                      });
+                    },
                   ),
                 ),
-                const SizedBox(height: 24),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+
+              // 5. Input Alamat Lengkap
+              const Text(
+                'Alamat Lengkap',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _addressController,
+                decoration: _inputDecoration(''),
+              ),
+              const SizedBox(height: 32),
+
+              // Tombol DAFTAR
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Aksi pendaftaran
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'DAFTAR',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Helper untuk styling dekorasi input field
+  InputDecoration _inputDecoration(String hintText) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.grey),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade400),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor, width: 1.5),
       ),
     );
   }
