@@ -22,141 +22,120 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final Color primaryColor = const Color(0xFF006B42);
 
-  Future<void> _register() async {
-    final nama = _nameController.text.trim();
-    final noHandphone = _phoneController.text.trim();
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-    final alamat = _addressController.text.trim();
+Future<void> _register() async {
+  final nama = _nameController.text.trim(); 
+  final noHandphone = _phoneController.text.trim();
+  final email = _emailController.text.trim();
+  final password = _passwordController.text.trim();
+  final alamat = _addressController.text.trim();
 
-    // Validasi
-    if (nama.isEmpty) {
-      _showMessage('Nama harus diisi');
-      return;
+  // Validasi
+  if (nama.isEmpty) {
+    _showMessage('Nama harus diisi');
+    return;
+  }
+
+  if (noHandphone.isEmpty) {
+    _showMessage('No handphone harus diisi');
+    return;
+  }
+
+  if (email.isEmpty) {
+    _showMessage('Email harus diisi');
+    return;
+  }
+
+  if (password.isEmpty) {
+    _showMessage('Password harus diisi');
+    return;
+  }
+
+  if (password.length < 6) {
+    _showMessage('Password minimal 6 karakter');
+    return;
+  }
+
+  if (alamat.isEmpty) {
+    _showMessage('Alamat harus diisi');
+    return;
+  }
+
+  setState(() {
+    _isLoading = true;
+  });
+
+  try {
+    final supabase = Supabase.instance.client;
+
+    // Membuat akun sekaligus mengirim data profile
+    final response = await supabase.auth.signUp(
+      email: email,
+      password: password,
+      data: {
+        'nama': nama,
+        'no_handphone': noHandphone,
+        'alamat': alamat,
+      },
+    );
+
+    if (response.user == null) {
+      throw Exception('Akun gagal dibuat');
     }
 
-    if (noHandphone.isEmpty) {
-      _showMessage('No handphone harus diisi');
-      return;
-    }
+    if (!mounted) return;
 
-    if (email.isEmpty) {
-      _showMessage('Email harus diisi');
-      return;
-    }
-
-    if (password.isEmpty) {
-      _showMessage('Password harus diisi');
-      return;
-    }
-
-    if (password.length < 6) {
-      _showMessage('Password minimal 6 karakter');
-      return;
-    }
-
-    if (alamat.isEmpty) {
-      _showMessage('Alamat harus diisi');
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final supabase = Supabase.instance.client;
-
-      // 1. Membuat akun di Supabase Authentication
-      final response = await supabase.auth.signUp(
-        email: email,
-        password: password,
-      );
-
-      final user = response.user;
-
-      if (user == null) {
-        throw Exception('Akun gagal dibuat');
-      }
-
-      // 2. Menyimpan data tambahan ke tabel profiles
-      //
-      // Jika email confirmation aktif, session bisa null.
-      // Dalam kondisi tersebut insert profile membutuhkan
-      // user sudah terautentikasi/session tersedia.
-      if (response.session != null) {
-        await supabase.from('profiles').insert({
-          'id': user.id,
-          'nama': nama,
-          'no_handphone': noHandphone,
-          'email': email,
-          'alamat': alamat,
-        });
-      }
-
-      if (!mounted) return;
-
-      // Jika email confirmation aktif
-      if (response.session == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Pendaftaran berhasil. Silakan cek email untuk konfirmasi akun.',
-            ),
-          ),
-        );
-
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pendaftaran berhasil'),
-          ),
-        );
-
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-          ),
-          (Route<dynamic> route) => false,
-        );
-      }
-    } on AuthException catch (e) {
-      if (!mounted) return;
-
+    // Jika email confirmation aktif
+    if (response.session == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Pendaftaran gagal: ${e.message}'),
-          backgroundColor: Colors.red,
+        const SnackBar(
+          content: Text(
+            'Pendaftaran berhasil. Silakan konfirmasi email terlebih dahulu.',
+          ),
         ),
       );
-    } on PostgrestException catch (e) {
-      if (!mounted) return;
 
+      Navigator.pop(context);
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal menyimpan data: ${e.message}'),
-          backgroundColor: Colors.red,
+        const SnackBar(
+          content: Text('Pendaftaran berhasil'),
         ),
       );
-    } catch (e) {
-      if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Terjadi kesalahan: $e'),
-          backgroundColor: Colors.red,
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HomeScreen(),
         ),
+        (Route<dynamic> route) => false,
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    }
+  } on AuthException catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Pendaftaran gagal: ${e.message}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Terjadi kesalahan: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+}
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
