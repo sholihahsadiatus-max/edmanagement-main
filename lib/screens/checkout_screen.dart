@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'succes_screen.dart';
 
 class CheckoutScreen extends StatelessWidget {
   final int totalPrice;
@@ -6,81 +7,113 @@ class CheckoutScreen extends StatelessWidget {
 
   const CheckoutScreen({
     super.key,
-    this.totalPrice = 37000,
-    this.orderItems = const [
-      {
-        'name': 'Tas Rajut',
-        'variant': 'Hitam',
-        'qty': 1,
-        'price': 'Rp17.000',
-      },
-      {
-        'name': 'Keripik Pisang 250g',
-        'variant': '',
-        'qty': 2,
-        'price': 'Rp20.000',
-      },
-    ],
+    required this.totalPrice,
+    required this.orderItems,
   });
 
   final Color primaryColor = const Color(0xFF006B42);
 
-  // Helper format rupiah
   String formatRupiah(int price) {
-    return 'Rp${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}';
+    return 'Rp${price.toString().replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        )}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
+      // ============================================================
+      // APP BAR
+      // ============================================================
+
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: Colors.black,
+          ),
+          onPressed: () {
+            Navigator.pop(context);
+          },
         ),
+
         title: const Text(
           'Checkout',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
         ),
+
         centerTitle: true,
       ),
+
+      // ============================================================
+      // BODY
+      // ============================================================
+
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 10,
+          ),
+
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+
             children: [
-              // Garis biru di bawah AppBar
+
+              // GARIS ATAS
               Container(
                 height: 2,
                 color: Colors.lightBlue,
               ),
+
               const SizedBox(height: 12),
 
-              // Alamat Pengiriman
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(color: Colors.black, fontSize: 13, height: 1.4),
-                  children: [
-                    TextSpan(
-                      text: 'Alamat : ',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    TextSpan(
-                      text:
-                          '(Rika 08888899991) Dusun Pesanggrahan RT 03 RW 03 Desa Cendono Kecamatan Purwosari',
-                    ),
-                  ],
+              // ======================================================
+              // ALAMAT
+              // ======================================================
+
+              const Text(
+                'Alamat Pengiriman',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
+
+              const SizedBox(height: 6),
+
+              const Text(
+                '(Rika 08888899991) '
+                'Dusun Pesanggrahan RT 03 RW 03 '
+                'Desa Cendono Kecamatan Purwosari',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+
               const SizedBox(height: 12),
-              const Divider(height: 1, color: Colors.black26),
+
+              const Divider(
+                color: Colors.black26,
+              ),
+
               const SizedBox(height: 16),
 
-              // Judul Ringkasan Pesanan
+              // ======================================================
+              // RINGKASAN PESANAN
+              // ======================================================
+
               const Text(
                 'Ringkasan Pesanan',
                 style: TextStyle(
@@ -88,100 +121,222 @@ class CheckoutScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+
               const SizedBox(height: 16),
 
-              // List Items Ringkasan Pesanan
-              Column(
-                children: orderItems.map((item) {
-                  final String variantText = item['variant'].toString().isNotEmpty
-                      ? ' ,${item['variant']}'
-                      : '';
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${item['name']}$variantText  ${item['qty']}x',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+              // ======================================================
+              // DAFTAR PRODUK
+              // ======================================================
+
+              Expanded(
+                child: ListView.builder(
+                  itemCount: orderItems.length,
+
+                  itemBuilder: (context, index) {
+                    final item = orderItems[index];
+
+                    final String nama =
+                        item['name']?.toString() ?? 'Produk';
+
+                    final String variant =
+                        item['variant']?.toString() ?? '';
+
+                    final int qty =
+                        int.tryParse(
+                              item['qty']?.toString() ?? '1',
+                            ) ??
+                            1;
+
+                    final String price =
+                        item['price']?.toString() ?? 'Rp0';
+
+                    return Container(
+                      margin: const EdgeInsets.only(
+                        bottom: 12,
+                      ),
+
+                      padding: const EdgeInsets.all(14),
+
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+
+                        borderRadius:
+                            BorderRadius.circular(10),
+
+                        border: Border.all(
+                          color: Colors.grey.shade200,
+                        ),
+                      ),
+
+                      child: Row(
+                        children: [
+
+                          // ==================================================
+                          // INFORMASI PRODUK
+                          // ==================================================
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+
+                              children: [
+
+                                Text(
+                                  nama,
+                                  maxLines: 2,
+                                  overflow:
+                                      TextOverflow.ellipsis,
+
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight:
+                                        FontWeight.bold,
+                                  ),
+                                ),
+
+                                if (variant.isNotEmpty)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(
+                                      top: 4,
+                                    ),
+
+                                    child: Text(
+                                      variant,
+                                      style:
+                                          const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+
+                                const SizedBox(height: 5),
+
+                                Text(
+                                  '$qty x $price',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color:
+                                        primaryColor,
+                                    fontWeight:
+                                        FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        Text(
-                          item['price'].toString(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
+
+                          // ==================================================
+                          // HARGA
+                          // ==================================================
+
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
 
-              const SizedBox(height: 8),
-              const Divider(height: 1, color: Colors.black26),
-              const SizedBox(height: 16),
+              // ============================================================
+              // TOTAL
+              // ============================================================
 
-              // Total Price
+              const Divider(
+                color: Colors.black26,
+              ),
+
+              const SizedBox(height: 12),
+
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
+
                 children: [
+
                   const Text(
                     'Total',
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
+
                   Text(
                     formatRupiah(totalPrice),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight:
+                          FontWeight.bold,
+                      color: primaryColor,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              const Divider(height: 1, color: Colors.black26),
-              const SizedBox(height: 32),
 
-              // Tombol Beli
+              const SizedBox(height: 20),
+
+              // ============================================================
+              // TOMBOL BELI
+              // ============================================================
+
               SizedBox(
                 width: double.infinity,
                 height: 48,
+
                 child: ElevatedButton(
                   onPressed: () {
-                    // Dialog/Aksi saat tombol Beli diklik
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Pesanan Berhasil Dibuat!'),
-                        backgroundColor: Color(0xFF006B42),
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const SuccessScreen(),
                       ),
                     );
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+
+                  style:
+                      ElevatedButton.styleFrom(
+                    backgroundColor:
+                        primaryColor,
+
+                    foregroundColor:
+                        Colors.white,
+
                     elevation: 0,
+
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(
+                        20,
+                      ),
+                    ),
                   ),
+
                   child: const Text(
                     'Beli',
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ),
               ),
+
+              const SizedBox(height: 10),
             ],
           ),
         ),

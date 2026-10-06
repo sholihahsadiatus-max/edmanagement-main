@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'detail_produk_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -8,7 +9,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
   final Color primaryColor = const Color(0xFF006B42);
 
   // Kategori
@@ -20,27 +20,27 @@ class _HomeScreenState extends State<HomeScreen> {
     {'icon': Icons.more_horiz, 'label': 'Lainnya'},
   ];
 
-  // Produk
+  // Daftar Produk
   final List<Map<String, String>> products = [
     {
       'name': 'Tas Rajut',
       'price': 'Rp17.000',
-      'image': 'https://via.placeholder.com/150', // Ganti dengan path asset/URL gambar Anda
+      'image': 'assets/tasrajut.jpeg',
     },
     {
       'name': 'Keripik Pisang',
       'price': 'Rp10.000',
-      'image': 'https://via.placeholder.com/150',
+      'image': 'assets/keripikpisang.jpeg',
     },
     {
       'name': 'Kopi Cendana',
       'price': 'Rp25.000',
-      'image': 'https://via.placeholder.com/150',
+      'image': 'assets/kopi.jpeg',
     },
     {
       'name': 'Stik Kelor',
       'price': 'Rp12.000',
-      'image': 'https://via.placeholder.com/150',
+      'image': 'assets/bawangkelor.jpeg',
     },
   ];
 
@@ -120,11 +120,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       CircleAvatar(
                         radius: 24,
                         backgroundColor: primaryColor,
-                        child: Icon(cat['icon'], color: Colors.white, size: 22),
+                        child: Icon(
+                          cat['icon'] as IconData? ?? Icons.category,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        cat['label'],
+                        cat['label']?.toString() ?? '',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ],
@@ -159,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Grid Produk
+              // Grid Produk (Bisa Diklik ke Detail)
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -172,80 +176,73 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 itemBuilder: (context, index) {
                   final item = products[index];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            item['image']!,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: Colors.grey.shade300,
-                                child: const Icon(Icons.image, color: Colors.grey),
-                              );
-                            },
+                  final imagepath = item['image'] ?? '';
+                  final name = item['name'] ?? '';
+                  final price = item['price'] ?? '';
+
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DetailProductScreen(product: item),
+                        ),
+                      );
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: imagepath.isNotEmpty
+                                ? Image.asset(
+                                    imagepath,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey.shade300,
+                                        child: const Icon(
+                                          Icons.image_not_supported,
+                                          color: Colors.grey,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : Container(
+                                    color: Colors.grey.shade300,
+                                    child: const Icon(
+                                      Icons.image,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        item['name']!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(height: 8),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      Text(
-                        item['price']!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                        Text(
+                          price,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   );
                 },
               ),
             ],
           ),
         ),
-      ),
-
-      // Bottom Navigation Bar
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: primaryColor,
-        unselectedItemColor: Colors.black54,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view),
-            label: 'Kategori',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            label: 'Keranjang',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Akun',
-          ),
-        ],
       ),
     );
   }
