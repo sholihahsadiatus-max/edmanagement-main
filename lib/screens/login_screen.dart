@@ -1,6 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:edmanagement/screens/penjual/seller_dashboard_screen.dart';
 import 'register_screen.dart';
 import 'pembeli/home_screen.dart';
 
@@ -12,17 +13,24 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _emailController =
+      TextEditingController();
+
+  final TextEditingController _passwordController =
+      TextEditingController();
 
   bool _obscureText = true;
   bool _isLoading = false;
 
   final Color primaryColor = const Color(0xFF006B42);
 
+  // =====================================================
+  // LOGIN DAN PENGECEKAN ROLE
+  // =====================================================
+
   Future<void> _login() async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+    final password = _passwordController.text;
 
     // Cek email
     if (email.isEmpty) {
@@ -49,25 +57,124 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await Supabase.instance.client.auth.signInWithPassword(
+      // Login melalui Supabase Auth
+      final response =
+          await Supabase.instance.client.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
+      final user = response.user;
+
+      if (user == null) {
+        throw Exception('Data pengguna tidak ditemukan.');
+      }
+
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Login berhasil'),
-        ),
-      );
+      // Ambil role dan status penjual dari tabel profiles
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('role, seller_status')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const HomeScreen(),
-        ),
-      );
+      if (!mounted) return;
+
+      // Jika profil tidak ditemukan
+      if (profile == null) {
+        await Supabase.instance.client.auth.signOut();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Profil akun tidak ditemukan. Silakan hubungi admin.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final role = profile['role']?.toString().toLowerCase();
+
+      final sellerStatus =
+          profile['seller_status']?.toString().toLowerCase();
+
+      // PEMBELI
+      if (role == 'buyer' || role == 'pembeli') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(),
+          ),
+        );
+      }
+
+      // PENJUAL
+      else if (role == 'seller' || role == 'penjual') {
+        if (sellerStatus == 'approved') {
+          // Penjual yang disetujui admin
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  const SellerDashboardScreen(),
+            ),
+          );
+        } else {
+          // Penjual belum disetujui atau ditolak
+          final pesan = sellerStatus == 'rejected'
+              ? 'Pengajuan penjual ditolak. Silakan hubungi admin.'
+              : 'Akun penjual masih menunggu persetujuan admin.';
+
+          await Supabase.instance.client.auth.signOut();
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(pesan),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+
+      // ADMIN
+      else if (role == 'admin') {
+        // Dashboard admin belum dihubungkan.
+        await Supabase.instance.client.auth.signOut();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Role admin terdeteksi, tetapi dashboard admin '
+              'belum dihubungkan.',
+            ),
+          ),
+        );
+      }
+
+      // ROLE TIDAK VALID
+      else {
+        await Supabase.instance.client.auth.signOut();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Role akun belum valid. Silakan hubungi admin.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } on AuthException catch (e) {
       if (!mounted) return;
 
@@ -102,6 +209,10 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // =====================================================
+  // TAMPILAN LOGIN - DIPERTAHANKAN DARI KODE AWAL
+  // =====================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -117,15 +228,15 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 40),
 
-             // LOGO
-            Center(
-             child: Image.asset(
-              'assets/logo.png',
-              width: 120,
-              height: 120,
-               fit: BoxFit.contain,
-            ),
-          ),
+              // LOGO
+              Center(
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: 120,
+                  height: 120,
+                  fit: BoxFit.contain,
+                ),
+              ),
 
               const SizedBox(height: 16),
 
@@ -316,7 +427,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const RegisterScreen(),
+                          builder: (context) =>
+                              const RegisterScreen(),
                         ),
                       );
                     },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'pembeli/home_screen.dart';
+import 'penjual/seller_dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -19,6 +20,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _obscureText = true;
   bool _isLoading = false;
+
+  // ROLE PEMBELI ATAU PENJUAL
+  String _selectedRole = 'buyer';
 
   final Color primaryColor = const Color(0xFF006B42);
 
@@ -78,16 +82,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: email,
         password: password,
 
-        // Data ini akan digunakan oleh
-        // trigger untuk membuat profiles
+        // Data digunakan oleh trigger
+        // untuk membuat profil pengguna.
         data: {
           'nama': nama,
           'no_handphone': noHandphone,
           'alamat': alamat,
+          'role': _selectedRole,
         },
       );
 
-      // Pastikan user berhasil dibuat
+      // Pastikan user berhasil dibuat.
       if (response.user == null) {
         throw Exception('Akun gagal dibuat');
       }
@@ -102,7 +107,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Pendaftaran berhasil. Silakan cek email untuk konfirmasi.',
+              'Pendaftaran berhasil. Silakan cek email '
+              'untuk konfirmasi, lalu login untuk masuk.',
             ),
             backgroundColor: Color(0xFF006B42),
           ),
@@ -117,19 +123,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pendaftaran berhasil'),
-            backgroundColor: Color(0xFF006B42),
+          SnackBar(
+            content: Text(
+              _selectedRole == 'seller'
+                  ? 'Pendaftaran penjual berhasil'
+                  : 'Pendaftaran pembeli berhasil',
+            ),
+            backgroundColor: const Color(0xFF006B42),
           ),
         );
 
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-          ),
-          (Route<dynamic> route) => false,
-        );
+        // =========================
+        // ROLE PENJUAL
+        // MASUK DASHBOARD PENJUAL
+        // =========================
+
+        if (_selectedRole == 'seller') {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+             builder: (context) => const SellerDashboardScreen(),
+            ),
+            (Route<dynamic> route) => false,
+          );
+        }
+
+        // =========================
+        // ROLE PEMBELI
+        // MASUK DASHBOARD PEMBELI
+        // =========================
+
+        else {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const HomeScreen(),
+            ),
+            (Route<dynamic> route) => false,
+          );
+        }
       }
     }
 
@@ -313,8 +345,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _nameController,
 
-                decoration:
-                    _inputDecoration(
+                decoration: _inputDecoration(
                   'Masukkan nama',
                 ),
               ),
@@ -340,11 +371,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _phoneController,
 
-                keyboardType:
-                    TextInputType.phone,
+                keyboardType: TextInputType.phone,
 
-                decoration:
-                    _inputDecoration(
+                decoration: _inputDecoration(
                   'Masukkan no handphone',
                 ),
               ),
@@ -370,11 +399,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _emailController,
 
-                keyboardType:
-                    TextInputType.emailAddress,
+                keyboardType: TextInputType.emailAddress,
 
-                decoration:
-                    _inputDecoration(
+                decoration: _inputDecoration(
                   'Masukkan email',
                 ),
               ),
@@ -398,36 +425,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 6),
 
               TextField(
-                controller:
-                    _passwordController,
+                controller: _passwordController,
 
                 obscureText: _obscureText,
 
-                decoration:
-                    _inputDecoration(
+                decoration: _inputDecoration(
                   'Masukkan password',
                 ).copyWith(
 
-                  suffixIcon:
-                      IconButton(
+                  suffixIcon: IconButton(
 
                     icon: Icon(
                       _obscureText
-                          ? Icons
-                              .visibility_off_outlined
-                          : Icons
-                              .visibility_outlined,
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
 
                       color: Colors.grey,
                     ),
 
                     onPressed: () {
-
                       setState(() {
-                        _obscureText =
-                            !_obscureText;
+                        _obscureText = !_obscureText;
                       });
-
                     },
                   ),
                 ),
@@ -452,14 +471,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 6),
 
               TextField(
-                controller:
-                    _addressController,
+                controller: _addressController,
 
                 maxLines: 2,
 
-                decoration:
-                    _inputDecoration(
+                decoration: _inputDecoration(
                   'Masukkan alamat lengkap',
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // =========================
+              // PILIH ROLE
+              // =========================
+
+              const Text(
+                'Daftar sebagai',
+
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              DropdownButtonFormField<String>(
+                initialValue: _selectedRole,
+
+                decoration: _inputDecoration(
+                  'Pilih role',
+                ).copyWith(
+                  prefixIcon: Icon(
+                    Icons.person_outline,
+                    color: primaryColor,
+                  ),
+                ),
+
+                items: const [
+                  DropdownMenuItem<String>(
+                    value: 'buyer',
+                    child: Text('Pembeli'),
+                  ),
+
+                  DropdownMenuItem<String>(
+                    value: 'seller',
+                    child: Text('Penjual'),
+                  ),
+                ],
+
+                onChanged: _isLoading
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() {
+                            _selectedRole = value;
+                          });
+                        }
+                      },
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                _selectedRole == 'seller'
+                    ? 'Anda akan diarahkan ke dashboard penjual.'
+                    : 'Anda akan diarahkan ke dashboard pembeli.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
                 ),
               ),
 
@@ -474,49 +556,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 child: ElevatedButton(
 
-                  onPressed:
-                      _isLoading
-                          ? null
-                          : _register,
+                  onPressed: _isLoading
+                      ? null
+                      : _register,
 
-                  style:
-                      ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
 
-                    backgroundColor:
-                        primaryColor,
+                    backgroundColor: primaryColor,
 
-                    disabledBackgroundColor:
-                        Colors.grey,
+                    disabledBackgroundColor: Colors.grey,
 
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
 
                     elevation: 0,
                   ),
 
                   child: _isLoading
-
                       ? const SizedBox(
                           width: 22,
                           height: 22,
 
-                          child:
-                              CircularProgressIndicator(
+                          child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.white,
                           ),
                         )
-
                       : const Text(
                           'DAFTAR',
 
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight:
-                                FontWeight.bold,
+                            fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
@@ -547,40 +619,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
         fontSize: 14,
       ),
 
-      contentPadding:
-          const EdgeInsets.symmetric(
+      contentPadding: const EdgeInsets.symmetric(
         horizontal: 16,
         vertical: 12,
       ),
 
       border: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12),
 
-        borderSide:
-            const BorderSide(
+        borderSide: const BorderSide(
           color: Colors.grey,
         ),
       ),
 
-      enabledBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
 
-        borderSide:
-            BorderSide(
+        borderSide: BorderSide(
           color: Colors.grey.shade400,
         ),
       ),
 
-      focusedBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(12),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
 
-        borderSide:
-            BorderSide(
+        borderSide: BorderSide(
           color: primaryColor,
           width: 1.5,
         ),
