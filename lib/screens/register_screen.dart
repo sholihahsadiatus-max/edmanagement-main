@@ -298,13 +298,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // LOGO
               // =========================
 
+              
+              // =========================
+              // LOGO
+              // =========================
+
               Center(
-                child: Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 90,
-                  color: primaryColor,
+                child: Image.asset(
+                  'assets/logo.png',
+                  width: 150,
+                  height: 150,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 90,
+                      color: primaryColor,
+                    );
+                  },
                 ),
               ),
+
+              const SizedBox(height: 12),
+
 
               const SizedBox(height: 12),
 
@@ -314,7 +330,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               const Text(
                 'Selamat Datang !',
-
+  
                 textAlign: TextAlign.center,
 
                 style: TextStyle(
