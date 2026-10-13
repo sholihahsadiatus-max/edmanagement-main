@@ -10,16 +10,24 @@ class AkunScreen extends StatelessWidget {
   final String email;
   final bool showScaffold;
 
+  // Callback untuk memberi tahu HomeScreen
+  // bahwa data akun sudah diperbarui.
+  final Future<void> Function()? onProfileUpdated;
+
   const AkunScreen({
     super.key,
     this.nama = 'Pengguna',
     this.email = '',
     this.showScaffold = true,
+    this.onProfileUpdated,
   });
 
   final Color primaryColor = const Color(0xFF006B42);
   final Color backgroundColor = const Color(0xFFF7F0ED);
 
+  // =========================
+  // LOGOUT
+  // =========================
   Future<void> _logout(BuildContext context) async {
     try {
       await Supabase.instance.client.auth.signOut();
@@ -40,6 +48,22 @@ class AkunScreen extends StatelessWidget {
         ),
       );
     }
+  }
+
+  // =========================
+  // EDIT AKUN
+  // =========================
+  Future<void> _editAkun(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const EditAkunScreen(),
+      ),
+    );
+
+    // Setelah kembali dari EditAkunScreen,
+    // ambil kembali data terbaru dari Supabase.
+    await onProfileUpdated?.call();
   }
 
   @override
@@ -63,8 +87,10 @@ class AkunScreen extends StatelessWidget {
                   top: 48,
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment:
+                      MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Akun',
@@ -98,10 +124,13 @@ class AkunScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius:
+                        BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withValues(
+                          alpha: 0.05,
+                        ),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -113,7 +142,8 @@ class AkunScreen extends StatelessWidget {
                         children: [
                           const CircleAvatar(
                             radius: 28,
-                            backgroundColor: Color(0xFFE0E0E0),
+                            backgroundColor:
+                                Color(0xFFE0E0E0),
                             child: Icon(
                               Icons.person,
                               color: Colors.grey,
@@ -124,26 +154,33 @@ class AkunScreen extends StatelessWidget {
 
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   nama,
                                   maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  overflow:
+                                      TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight:
+                                        FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  email.isEmpty ? 'Email belum tersedia' : email,
+                                  email.isEmpty
+                                      ? 'Email belum tersedia'
+                                      : email,
                                   maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  overflow:
+                                      TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontSize: 13,
                                     color: Colors.blue,
-                                    decoration: TextDecoration.underline,
+                                    decoration:
+                                        TextDecoration.underline,
                                   ),
                                 ),
                               ],
@@ -158,10 +195,12 @@ class AkunScreen extends StatelessWidget {
                       // STATISTIK
                       // =========================
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceEvenly,
                         children: [
                           _buildStatItem(
-                            icon: Icons.shopping_bag_outlined,
+                            icon: Icons
+                                .shopping_bag_outlined,
                             count: '4',
                             label: 'Pesanan',
                           ),
@@ -171,7 +210,8 @@ class AkunScreen extends StatelessWidget {
                             color: Colors.grey.shade300,
                           ),
                           _buildStatItem(
-                            icon: Icons.favorite_border,
+                            icon:
+                                Icons.favorite_border,
                             count: '2',
                             label: 'Keranjang',
                           ),
@@ -181,7 +221,8 @@ class AkunScreen extends StatelessWidget {
                             color: Colors.grey.shade300,
                           ),
                           _buildStatItem(
-                            icon: Icons.location_on_outlined,
+                            icon: Icons
+                                .location_on_outlined,
                             count: '',
                             label: 'Alamat',
                           ),
@@ -200,9 +241,11 @@ class AkunScreen extends StatelessWidget {
           // MENU SAYA
           // =========================
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Menu Saya',
@@ -216,7 +259,8 @@ class AkunScreen extends StatelessWidget {
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius:
+                        BorderRadius.circular(16),
                   ),
                   child: Column(
                     children: [
@@ -267,9 +311,11 @@ class AkunScreen extends StatelessWidget {
           // PENGATURAN
           // =========================
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Pengaturan',
@@ -283,20 +329,15 @@ class AkunScreen extends StatelessWidget {
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius:
+                        BorderRadius.circular(16),
                   ),
                   child: Column(
                     children: [
                       _buildMenuItem(
                         'Akun',
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const EditAkunScreen(),
-                            ),
-                          );
+                          _editAkun(context);
                         },
                       ),
 
@@ -319,7 +360,8 @@ class AkunScreen extends StatelessWidget {
           // TOMBOL KELUAR
           // =========================
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20),
             child: SizedBox(
               width: double.infinity,
               height: 48,
@@ -331,11 +373,13 @@ class AkunScreen extends StatelessWidget {
                   backgroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius:
+                        BorderRadius.circular(24),
                   ),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisAlignment:
+                      MainAxisAlignment.start,
                   children: const [
                     SizedBox(width: 12),
                     Icon(
@@ -397,7 +441,8 @@ class AkunScreen extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
             if (count.isNotEmpty)
               Text(

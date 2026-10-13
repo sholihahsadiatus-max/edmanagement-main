@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'detail_produk_screen.dart';
 import 'cart_screen.dart';
 import 'akun_screen.dart';
+import 'kategori_screen.dart';
+import 'kategori_menu_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -134,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // BOTTOM NAVIGATION
   // =========================
   void _onBottomNavigationTap(int index) {
-    // Keranjang tetap membuka CartScreen
+    // Keranjang
     if (index == 2) {
       Navigator.push(
         context,
@@ -146,21 +148,36 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Kategori sementara
-    if (index == 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Menu Kategori'),
-        ),
-      );
+    // Kategori
+if (index == 1) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => KategoriMenuScreen(),
+    ),
+  );
+  return;
+}
 
-      return;
-    }
 
     // Beranda / Akun
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  // =========================
+  // BUKA KATEGORI
+  // =========================
+  void _openCategory(String kategori) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => KategoriScreen(
+          kategori: kategori,
+        ),
+      ),
+    );
   }
 
   // =========================
@@ -177,11 +194,14 @@ class _HomeScreenState extends State<HomeScreen> {
             // HEADER
             // =========================
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceBetween,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Hi, $_namaUser',
@@ -203,15 +223,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
 
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 24,
-                  backgroundColor: Color(0xFFE8F5EF),
-                  child: Icon(
-                    Icons.shopping_bag_outlined,
-                    color: Color(0xFF006B42),
-                    size: 24,
+                  backgroundColor: const Color(0xFFE8F5EF),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/logo.png',
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
                   ),
                 ),
+              ),
               ],
             ),
 
@@ -231,23 +254,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icons.search,
                   color: Colors.grey,
                 ),
-                contentPadding: const EdgeInsets.symmetric(
+                contentPadding:
+                    const EdgeInsets.symmetric(
                   vertical: 0,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
+                  borderRadius:
+                      BorderRadius.circular(25),
                   borderSide: const BorderSide(
                     color: Colors.grey,
                   ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
+                enabledBorder:
+                    OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius.circular(25),
                   borderSide: BorderSide(
                     color: Colors.grey.shade300,
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
+                focusedBorder:
+                    OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius.circular(25),
                   borderSide: BorderSide(
                     color: primaryColor,
                   ),
@@ -261,30 +290,40 @@ class _HomeScreenState extends State<HomeScreen> {
             // KATEGORI
             // =========================
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceBetween,
               children: categories.map((cat) {
-                return Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: primaryColor,
-                      child: Icon(
-                        cat['icon'] as IconData? ??
-                            Icons.category,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
+                final String categoryName =
+                    cat['label']?.toString() ?? '';
 
-                    const SizedBox(height: 6),
-
-                    Text(
-                      cat['label']?.toString() ?? '',
-                      style: const TextStyle(
-                        fontSize: 12,
+                return GestureDetector(
+                  onTap: () {
+                    _openCategory(categoryName);
+                  },
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor:
+                            primaryColor,
+                        child: Icon(
+                          cat['icon'] as IconData? ??
+                              Icons.category,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 6),
+
+                      Text(
+                        categoryName,
+                        style: const TextStyle(
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               }).toList(),
             ),
@@ -374,27 +413,35 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: imagePath.isNotEmpty
                               ? Image.asset(
                                   imagePath,
-                                  width: double.infinity,
+                                  width:
+                                      double.infinity,
                                   fit: BoxFit.cover,
                                   errorBuilder:
-                                      (context, error, stackTrace) {
+                                      (context,
+                                          error,
+                                          stackTrace) {
                                     return Container(
-                                      color:
-                                          Colors.grey.shade300,
-                                      child: const Icon(
+                                      color: Colors
+                                          .grey
+                                          .shade300,
+                                      child:
+                                          const Icon(
                                         Icons
                                             .image_not_supported,
-                                        color: Colors.grey,
+                                        color:
+                                            Colors.grey,
                                       ),
                                     );
                                   },
                                 )
                               : Container(
-                                  color:
-                                      Colors.grey.shade300,
+                                  color: Colors
+                                      .grey
+                                      .shade300,
                                   child: const Icon(
                                     Icons.image,
-                                    color: Colors.grey,
+                                    color:
+                                        Colors.grey,
                                   ),
                                 ),
                         ),
@@ -406,7 +453,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         name,
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight:
+                              FontWeight.w600,
                         ),
                       ),
 
@@ -414,7 +462,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         price,
                         style: const TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                           color: Colors.black87,
                         ),
                       ),
@@ -442,22 +491,31 @@ class _HomeScreenState extends State<HomeScreen> {
               nama: _namaUser,
               email: _emailUser,
               showScaffold: false,
+
+              // =========================
+              // REFRESH SETELAH EDIT AKUN
+              // =========================
+              onProfileUpdated:
+                  _getNamaUser,
             )
           : _buildHomeContent(),
 
       // =========================
       // BOTTOM NAVIGATION
       // =========================
-      bottomNavigationBar: BottomNavigationBar(
+      bottomNavigationBar:
+          BottomNavigationBar(
         currentIndex: _selectedIndex,
 
         onTap: _onBottomNavigationTap,
 
         type: BottomNavigationBarType.fixed,
 
-        selectedItemColor: primaryColor,
+        selectedItemColor:
+            primaryColor,
 
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor:
+            Colors.grey,
 
         selectedFontSize: 12,
 
@@ -465,26 +523,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
+            icon: Icon(
+              Icons.home_outlined,
+            ),
+            activeIcon: Icon(
+              Icons.home,
+            ),
             label: 'Beranda',
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.grid_view_outlined),
-            activeIcon: Icon(Icons.grid_view),
+            icon: Icon(
+              Icons.grid_view_outlined,
+            ),
+            activeIcon: Icon(
+              Icons.grid_view,
+            ),
             label: 'Kategori',
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined),
-            activeIcon: Icon(Icons.shopping_cart),
+            icon: Icon(
+              Icons.shopping_cart_outlined,
+            ),
+            activeIcon: Icon(
+              Icons.shopping_cart,
+            ),
             label: 'Keranjang',
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
+            icon: Icon(
+              Icons.person_outline,
+            ),
+            activeIcon: Icon(
+              Icons.person,
+            ),
             label: 'Akun',
           ),
         ],

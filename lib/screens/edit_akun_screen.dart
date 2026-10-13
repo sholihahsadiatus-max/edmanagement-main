@@ -34,7 +34,7 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
   }
 
   // =========================================================
-  // AMBIL DATA PROFILE USER YANG SEDANG LOGIN
+  // AMBIL DATA PROFILE
   // =========================================================
   Future<void> _loadProfile() async {
     try {
@@ -42,7 +42,15 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
 
       final user = supabase.auth.currentUser;
 
+      debugPrint('==============================');
+      debugPrint('EDIT AKUN - USER LOGIN');
+      debugPrint('USER ID: ${user?.id}');
+      debugPrint('USER EMAIL: ${user?.email}');
+      debugPrint('==============================');
+
       if (user == null) {
+        debugPrint('USER TIDAK LOGIN');
+
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -60,6 +68,8 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
           .eq('id', user.id)
           .maybeSingle();
 
+      debugPrint('DATA PROFILE: $data');
+
       if (data != null) {
         _namaController.text =
             data['nama']?.toString() ?? '';
@@ -75,10 +85,17 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
         _alamatController.text =
             data['alamat']?.toString() ?? '';
       } else {
-        _emailController.text = user.email ?? '';
+        debugPrint(
+          'PROFILE TIDAK DITEMUKAN UNTUK USER ID INI',
+        );
+
+        _emailController.text =
+            user.email ?? '';
       }
     } catch (e) {
-      debugPrint('ERROR LOAD PROFILE: $e');
+      debugPrint(
+        'ERROR LOAD PROFILE: $e',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -99,33 +116,21 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
   }
 
   // =========================================================
-  // SIMPAN PERUBAHAN PROFILE
+  // SIMPAN PROFILE
   // =========================================================
   Future<void> _saveProfile() async {
     if (_namaController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nama tidak boleh kosong'),
-        ),
-      );
+      _showMessage('Nama tidak boleh kosong');
       return;
     }
 
     if (_phoneController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nomor HP tidak boleh kosong'),
-        ),
-      );
+      _showMessage('Nomor HP tidak boleh kosong');
       return;
     }
 
     if (_alamatController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Alamat tidak boleh kosong'),
-        ),
-      );
+      _showMessage('Alamat tidak boleh kosong');
       return;
     }
 
@@ -144,7 +149,23 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
         );
       }
 
-      await supabase
+      final userId = user.id;
+
+      debugPrint('==============================');
+      debugPrint('MULAI UPDATE PROFILE');
+      debugPrint('USER ID: $userId');
+      debugPrint(
+        'NAMA BARU: ${_namaController.text.trim()}',
+      );
+      debugPrint(
+        'NO HP BARU: ${_phoneController.text.trim()}',
+      );
+      debugPrint(
+        'ALAMAT BARU: ${_alamatController.text.trim()}',
+      );
+      debugPrint('==============================');
+
+      final result = await supabase
           .from('profiles')
           .update({
             'nama': _namaController.text.trim(),
@@ -153,7 +174,14 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
             'alamat':
                 _alamatController.text.trim(),
           })
-          .eq('id', user.id);
+          .eq('id', userId)
+          .select()
+          .single();
+
+      debugPrint('==============================');
+      debugPrint('UPDATE BERHASIL');
+      debugPrint('HASIL DATABASE: $result');
+      debugPrint('==============================');
 
       if (!mounted) return;
 
@@ -168,15 +196,19 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
 
       Navigator.pop(context);
     } catch (e) {
-      debugPrint('ERROR UPDATE PROFILE: $e');
+      debugPrint('==============================');
+      debugPrint('UPDATE GAGAL');
+      debugPrint('ERROR: $e');
+      debugPrint('==============================');
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Gagal menyimpan data: $e',
+            'Gagal menyimpan: $e',
           ),
+          backgroundColor: Colors.red,
         ),
       );
     } finally {
@@ -186,6 +218,14 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
         });
       }
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
   }
 
   @override
@@ -207,7 +247,7 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
-
+        centerTitle: true,
         title: const Text(
           'Edit Akun',
           style: TextStyle(
@@ -215,8 +255,6 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-
-        centerTitle: true,
       ),
 
       body: _isLoading
@@ -231,53 +269,21 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
                 children: [
-                  // =================================================
-                  // FOTO PROFIL
-                  // =================================================
                   Center(
-                    child: Stack(
-                      children: [
-                        const CircleAvatar(
-                          radius: 48,
-                          backgroundColor:
-                              Color(0xFFE0E0E0),
-                          child: Icon(
-                            Icons.person,
-                            size: 52,
-                            color: Colors.grey,
-                          ),
-                        ),
-
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: primaryColor,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 2,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: CircleAvatar(
+                      radius: 48,
+                      backgroundColor:
+                          const Color(0xFFE0E0E0),
+                      child: const Icon(
+                        Icons.person,
+                        size: 52,
+                        color: Colors.grey,
+                      ),
                     ),
                   ),
 
                   const SizedBox(height: 30),
 
-                  // =================================================
-                  // NAMA
-                  // =================================================
                   _buildLabel('Nama'),
 
                   const SizedBox(height: 8),
@@ -290,9 +296,6 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
 
                   const SizedBox(height: 20),
 
-                  // =================================================
-                  // EMAIL
-                  // =================================================
                   _buildLabel('Email'),
 
                   const SizedBox(height: 8),
@@ -301,12 +304,12 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
                     controller: _emailController,
                     readOnly: true,
                     decoration: InputDecoration(
-                      hintText: 'Email',
                       prefixIcon: const Icon(
                         Icons.email_outlined,
                       ),
                       filled: true,
-                      fillColor: Colors.grey.shade200,
+                      fillColor:
+                          Colors.grey.shade200,
                       border: OutlineInputBorder(
                         borderRadius:
                             BorderRadius.circular(12),
@@ -317,9 +320,6 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
 
                   const SizedBox(height: 20),
 
-                  // =================================================
-                  // NOMOR HP
-                  // =================================================
                   _buildLabel('Nomor HP'),
 
                   const SizedBox(height: 8),
@@ -328,14 +328,12 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
                     controller: _phoneController,
                     hintText: 'Masukkan nomor HP',
                     icon: Icons.phone_outlined,
-                    keyboardType: TextInputType.phone,
+                    keyboardType:
+                        TextInputType.phone,
                   ),
 
                   const SizedBox(height: 20),
 
-                  // =================================================
-                  // ALAMAT
-                  // =================================================
                   _buildLabel('Alamat'),
 
                   const SizedBox(height: 8),
@@ -344,14 +342,10 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
                     controller: _alamatController,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: 'Masukkan alamat',
-                      prefixIcon: const Padding(
-                        padding: EdgeInsets.only(
-                          bottom: 48,
-                        ),
-                        child: Icon(
-                          Icons.location_on_outlined,
-                        ),
+                      hintText:
+                          'Masukkan alamat',
+                      prefixIcon: const Icon(
+                        Icons.location_on_outlined,
                       ),
                       filled: true,
                       fillColor: Colors.white,
@@ -359,17 +353,21 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
                         borderRadius:
                             BorderRadius.circular(12),
                         borderSide: BorderSide(
-                          color: Colors.grey.shade300,
+                          color:
+                              Colors.grey.shade300,
                         ),
                       ),
-                      enabledBorder: OutlineInputBorder(
+                      enabledBorder:
+                          OutlineInputBorder(
                         borderRadius:
                             BorderRadius.circular(12),
                         borderSide: BorderSide(
-                          color: Colors.grey.shade300,
+                          color:
+                              Colors.grey.shade300,
                         ),
                       ),
-                      focusedBorder: OutlineInputBorder(
+                      focusedBorder:
+                          OutlineInputBorder(
                         borderRadius:
                             BorderRadius.circular(12),
                         borderSide: BorderSide(
@@ -382,26 +380,27 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
 
                   const SizedBox(height: 32),
 
-                  // =================================================
-                  // TOMBOL SIMPAN
-                  // =================================================
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed:
-                          _isSaving ? null : _saveProfile,
-
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
+                      onPressed: _isSaving
+                          ? null
+                          : _saveProfile,
+                      style:
+                          ElevatedButton.styleFrom(
+                        backgroundColor:
+                            primaryColor,
                         disabledBackgroundColor:
                             Colors.grey.shade400,
-                        shape: RoundedRectangleBorder(
+                        shape:
+                            RoundedRectangleBorder(
                           borderRadius:
-                              BorderRadius.circular(12),
+                              BorderRadius.circular(
+                            12,
+                          ),
                         ),
                       ),
-
                       child: _isSaving
                           ? const SizedBox(
                               width: 22,
@@ -409,14 +408,16 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
                               child:
                                   CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color:
+                                    Colors.white,
                               ),
                             )
                           : const Text(
                               'Simpan Perubahan',
                               style: TextStyle(
                                 fontSize: 15,
-                                fontWeight: FontWeight.bold,
+                                fontWeight:
+                                    FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
@@ -430,9 +431,6 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
     );
   }
 
-  // =========================================================
-  // LABEL
-  // =========================================================
   Widget _buildLabel(String text) {
     return Text(
       text,
@@ -443,9 +441,6 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
     );
   }
 
-  // =========================================================
-  // TEXT FIELD
-  // =========================================================
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
@@ -461,21 +456,26 @@ class _EditAkunScreenState extends State<EditAkunScreen> {
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius:
+              BorderRadius.circular(12),
           borderSide: BorderSide(
             color: Colors.grey.shade300,
           ),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+        enabledBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(12),
           borderSide: BorderSide(
             color: Colors.grey.shade300,
           ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+        focusedBorder:
+            OutlineInputBorder(
+          borderRadius:
+              BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: primaryColor,
+           color: primaryColor,
             width: 1.5,
           ),
         ),

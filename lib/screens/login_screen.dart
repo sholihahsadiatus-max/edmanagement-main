@@ -117,14 +117,15 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 40),
 
-              // LOGO
-              Center(
-                child: Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 100,
-                  color: primaryColor,
-                ),
-              ),
+             // LOGO
+            Center(
+             child: Image.asset(
+              'assets/logo.png',
+              width: 120,
+              height: 120,
+               fit: BoxFit.contain,
+            ),
+          ),
 
               const SizedBox(height: 16),
 
