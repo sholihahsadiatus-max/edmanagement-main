@@ -91,7 +91,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'role': _selectedRole,
         },
       );
-
       // Pastikan user berhasil dibuat.
       if (response.user == null) {
         throw Exception('Akun gagal dibuat');

@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // Cek email
+    // CEK EMAIL
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -42,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Cek password
+    // CEK PASSWORD
     if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -57,9 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Login melalui Supabase Auth
-      final response =
-          await Supabase.instance.client.auth.signInWithPassword(
+      final supabase = Supabase.instance.client;
+
+      // LOGIN MELALUI SUPABASE AUTH
+      final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
@@ -72,8 +73,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Ambil role dan status penjual dari tabel profiles
-      final profile = await Supabase.instance.client
+      // AMBIL ROLE DAN STATUS PENJUAL
+      final profile = await supabase
           .from('profiles')
           .select('role, seller_status')
           .eq('id', user.id)
@@ -81,9 +82,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // Jika profil tidak ditemukan
+      // JIKA PROFIL TIDAK DITEMUKAN
       if (profile == null) {
-        await Supabase.instance.client.auth.signOut();
+        await supabase.auth.signOut();
 
         if (!mounted) return;
 
@@ -98,12 +99,17 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final role = profile['role']?.toString().toLowerCase();
+      final role =
+          profile['role']?.toString().trim().toLowerCase();
 
       final sellerStatus =
-          profile['seller_status']?.toString().toLowerCase();
+          profile['seller_status']?.toString().trim().toLowerCase();
 
+      // =====================================================
       // PEMBELI
+      // LANGSUNG MASUK HOME SCREEN
+      // =====================================================
+
       if (role == 'buyer' || role == 'pembeli') {
         Navigator.pushReplacement(
           context,
@@ -113,10 +119,16 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
 
+      // =====================================================
       // PENJUAL
+      // HARUS MENDAPAT PERSETUJUAN ADMIN
+      // =====================================================
+
       else if (role == 'seller' || role == 'penjual') {
         if (sellerStatus == 'approved') {
-          // Penjual yang disetujui admin
+          // PENJUAL SUDAH DISETUJUI
+          // LANGSUNG MASUK SELLER DASHBOARD
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -125,12 +137,13 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         } else {
-          // Penjual belum disetujui atau ditolak
-          final pesan = sellerStatus == 'rejected'
-              ? 'Pengajuan penjual ditolak. Silakan hubungi admin.'
-              : 'Akun penjual masih menunggu persetujuan admin.';
+          // PENJUAL BELUM DISETUJUI ATAU DITOLAK
 
-          await Supabase.instance.client.auth.signOut();
+          final pesan = sellerStatus == 'rejected'
+              ? 'Pendaftaran penjual ditolak. Silakan hubungi admin.'
+              : 'Pendaftaran penjual masih menunggu persetujuan admin.';
+
+          await supabase.auth.signOut();
 
           if (!mounted) return;
 
@@ -143,10 +156,13 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
 
+      // =====================================================
       // ADMIN
+      // DASHBOARD ADMIN BELUM DIHUBUNGKAN
+      // =====================================================
+
       else if (role == 'admin') {
-        // Dashboard admin belum dihubungkan.
-        await Supabase.instance.client.auth.signOut();
+        await supabase.auth.signOut();
 
         if (!mounted) return;
 
@@ -160,9 +176,12 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
 
+      // =====================================================
       // ROLE TIDAK VALID
+      // =====================================================
+
       else {
-        await Supabase.instance.client.auth.signOut();
+        await supabase.auth.signOut();
 
         if (!mounted) return;
 
@@ -175,7 +194,13 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
-    } on AuthException catch (e) {
+    }
+
+    // =====================================================
+    // ERROR SUPABASE AUTH
+    // =====================================================
+
+    on AuthException catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -184,7 +209,13 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Colors.red,
         ),
       );
-    } catch (e) {
+    }
+
+    // =====================================================
+    // ERROR LAIN
+    // =====================================================
+
+    catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -193,7 +224,13 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: Colors.red,
         ),
       );
-    } finally {
+    }
+
+    // =====================================================
+    // SELESAI LOADING
+    // =====================================================
+
+    finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -201,6 +238,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
+
+  // =====================================================
+  // DISPOSE
+  // =====================================================
 
   @override
   void dispose() {
