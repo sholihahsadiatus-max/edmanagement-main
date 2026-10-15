@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'pembeli/home_screen.dart';
-import 'penjual/seller_dashboard_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -13,10 +12,17 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _nameController = TextEditingController();
+
   final TextEditingController _phoneController = TextEditingController();
+
   final TextEditingController _emailController = TextEditingController();
+
   final TextEditingController _passwordController = TextEditingController();
+
   final TextEditingController _addressController = TextEditingController();
+
+  // TAMBAHAN: CONTROLLER NAMA USAHA
+  final TextEditingController _businessNameController = TextEditingController();
 
   bool _obscureText = true;
   bool _isLoading = false;
@@ -32,6 +38,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final alamat = _addressController.text.trim();
+
+    // TAMBAHAN: AMBIL NAMA USAHA
+    final namaUsaha = _businessNameController.text.trim();
 
     // =========================
     // VALIDASI
@@ -67,6 +76,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    // TAMBAHAN: NAMA USAHA WAJIB UNTUK PENJUAL
+    if (_selectedRole == 'seller' && namaUsaha.isEmpty) {
+      _showMessage('Nama usaha harus diisi');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -82,16 +97,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: email,
         password: password,
 
-        // Data digunakan oleh trigger
-        // untuk membuat profil pengguna.
+        // DATA UNTUK TRIGGER PEMBUATAN PROFIL
         data: {
           'nama': nama,
           'no_handphone': noHandphone,
           'alamat': alamat,
           'role': _selectedRole,
+
+          // TAMBAHAN: NAMA USAHA
+          'nama_usaha': _selectedRole == 'seller' ? namaUsaha : null,
         },
       );
-      // Pastikan user berhasil dibuat.
+
       if (response.user == null) {
         throw Exception('Akun gagal dibuat');
       }
@@ -99,109 +116,103 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       // =========================
-      // JIKA CONFIRM EMAIL AKTIF
+      // JIKA KONFIRMASI EMAIL AKTIF
       // =========================
 
       if (response.session == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Pendaftaran berhasil. Silakan cek email '
-              'untuk konfirmasi, lalu login untuk masuk.',
+              _selectedRole == 'seller'
+                  ? 'Pendaftaran penjual berhasil. '
+                        'Silakan konfirmasi email dan tunggu '
+                        'persetujuan admin.'
+                  : 'Pendaftaran berhasil. Silakan cek email '
+                        'untuk konfirmasi, lalu login.',
             ),
-            backgroundColor: Color(0xFF006B42),
+            backgroundColor: primaryColor,
           ),
         );
 
         Navigator.pop(context);
       }
-
       // =========================
-      // JIKA CONFIRM EMAIL NONAKTIF
+      // JIKA KONFIRMASI EMAIL NONAKTIF
       // =========================
-
       else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _selectedRole == 'seller'
-                  ? 'Pendaftaran penjual berhasil'
-                  : 'Pendaftaran pembeli berhasil',
-            ),
-            backgroundColor: const Color(0xFF006B42),
-          ),
-        );
-
         // =========================
         // ROLE PENJUAL
-        // MASUK DASHBOARD PENJUAL
+        // MENUNGGU PERSETUJUAN ADMIN
         // =========================
 
         if (_selectedRole == 'seller') {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-             builder: (context) => const SellerDashboardScreen(),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Pendaftaran berhasil. Akun penjual '
+                'menunggu persetujuan admin.',
+              ),
+              backgroundColor: primaryColor,
             ),
-            (Route<dynamic> route) => false,
           );
-        }
 
+          // KEMBALI KE HALAMAN LOGIN
+          // PENJUAL TIDAK LANGSUNG MASUK DASHBOARD
+          await supabase.auth.signOut();
+
+          if (!mounted) return;
+
+          Navigator.pop(context);
+        }
         // =========================
         // ROLE PEMBELI
-        // MASUK DASHBOARD PEMBELI
+        // TETAP MASUK HOME SCREEN
         // =========================
-
         else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Pendaftaran pembeli berhasil.'),
+              backgroundColor: Color(0xFF006B42),
+            ),
+          );
+
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(
-              builder: (context) => const HomeScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
             (Route<dynamic> route) => false,
           );
         }
       }
     }
-
     // =========================
     // ERROR SUPABASE AUTH
     // =========================
-
     on AuthException catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Pendaftaran gagal: ${e.message}',
-          ),
+          content: Text('Pendaftaran gagal: ${e.message}'),
           backgroundColor: Colors.red,
         ),
       );
     }
-
     // =========================
     // ERROR LAIN
     // =========================
-
     catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Terjadi kesalahan: $e',
-          ),
+          content: Text('Terjadi kesalahan: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
-
     // =========================
     // SELESAI LOADING
     // =========================
-
     finally {
       if (mounted) {
         setState(() {
@@ -217,10 +228,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
@@ -236,6 +244,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _addressController.dispose();
 
+    // TAMBAHAN
+    _businessNameController.dispose();
+
     super.dispose();
   }
 
@@ -250,42 +261,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24.0,
-            vertical: 16.0,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
 
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-
               // =========================
               // NAVIGASI
               // =========================
-
               Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
-
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-
                   IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.black,
-                    ),
-
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
                     onPressed: () {
                       Navigator.pop(context);
                     },
                   ),
 
                   IconButton(
-                    icon: const Icon(
-                      Icons.arrow_forward,
-                      color: Colors.black,
-                    ),
-
+                    icon: const Icon(Icons.arrow_forward, color: Colors.black),
                     onPressed: () {},
                   ),
                 ],
@@ -296,12 +291,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // LOGO
               // =========================
-
-              
-              // =========================
-              // LOGO
-              // =========================
-
               Center(
                 child: Image.asset(
                   'assets/logo.png',
@@ -320,18 +309,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               const SizedBox(height: 12),
 
-
-              const SizedBox(height: 12),
-
               // =========================
               // JUDUL
               // =========================
-
               const Text(
                 'Selamat Datang !',
-  
                 textAlign: TextAlign.center,
-
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -344,10 +327,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // NAMA
               // =========================
-
               const Text(
                 'Nama',
-
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -359,10 +340,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextField(
                 controller: _nameController,
-
-                decoration: _inputDecoration(
-                  'Masukkan nama',
-                ),
+                decoration: _inputDecoration('Masukkan nama'),
               ),
 
               const SizedBox(height: 16),
@@ -370,10 +348,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // NO HANDPHONE
               // =========================
-
               const Text(
                 'No handphone',
-
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -385,12 +361,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextField(
                 controller: _phoneController,
-
                 keyboardType: TextInputType.phone,
-
-                decoration: _inputDecoration(
-                  'Masukkan no handphone',
-                ),
+                decoration: _inputDecoration('Masukkan no handphone'),
               ),
 
               const SizedBox(height: 16),
@@ -398,10 +370,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // EMAIL
               // =========================
-
               const Text(
                 'Email',
-
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -413,12 +383,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextField(
                 controller: _emailController,
-
                 keyboardType: TextInputType.emailAddress,
-
-                decoration: _inputDecoration(
-                  'Masukkan email',
-                ),
+                decoration: _inputDecoration('Masukkan email'),
               ),
 
               const SizedBox(height: 16),
@@ -426,10 +392,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // PASSWORD
               // =========================
-
               const Text(
                 'Password',
-
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -441,23 +405,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextField(
                 controller: _passwordController,
-
                 obscureText: _obscureText,
-
-                decoration: _inputDecoration(
-                  'Masukkan password',
-                ).copyWith(
-
+                decoration: _inputDecoration('Masukkan password').copyWith(
                   suffixIcon: IconButton(
-
                     icon: Icon(
                       _obscureText
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-
                       color: Colors.grey,
                     ),
-
                     onPressed: () {
                       setState(() {
                         _obscureText = !_obscureText;
@@ -472,10 +428,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // ALAMAT
               // =========================
-
               const Text(
                 'Alamat Lengkap',
-
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -487,12 +441,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               TextField(
                 controller: _addressController,
-
                 maxLines: 2,
-
-                decoration: _inputDecoration(
-                  'Masukkan alamat lengkap',
-                ),
+                decoration: _inputDecoration('Masukkan alamat lengkap'),
               ),
 
               const SizedBox(height: 16),
@@ -500,10 +450,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // PILIH ROLE
               // =========================
-
               const Text(
                 'Daftar sebagai',
-
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -515,28 +463,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               DropdownButtonFormField<String>(
                 initialValue: _selectedRole,
-
-                decoration: _inputDecoration(
-                  'Pilih role',
-                ).copyWith(
-                  prefixIcon: Icon(
-                    Icons.person_outline,
-                    color: primaryColor,
-                  ),
+                decoration: _inputDecoration('Pilih role').copyWith(
+                  prefixIcon: Icon(Icons.person_outline, color: primaryColor),
                 ),
-
                 items: const [
                   DropdownMenuItem<String>(
                     value: 'buyer',
                     child: Text('Pembeli'),
                   ),
-
                   DropdownMenuItem<String>(
                     value: 'seller',
                     child: Text('Penjual'),
                   ),
                 ],
-
                 onChanged: _isLoading
                     ? null
                     : (value) {
@@ -548,16 +487,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
+              // =========================
+              // TAMBAHAN: NAMA USAHA
+              // HANYA UNTUK PENJUAL
+              // =========================
+              if (_selectedRole == 'seller') ...[
+                const Text(
+                  'Nama Usaha',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                TextField(
+                  controller: _businessNameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: _inputDecoration('Masukkan nama usaha Anda')
+                      .copyWith(
+                        prefixIcon: Icon(
+                          Icons.storefront_outlined,
+                          color: primaryColor,
+                        ),
+                      ),
+                ),
+
+                const SizedBox(height: 16),
+              ],
+
+              // =========================
+              // INFORMASI ROLE
+              // =========================
               Text(
                 _selectedRole == 'seller'
-                    ? 'Anda akan diarahkan ke dashboard penjual.'
+                    ? 'Pendaftaran penjual akan menunggu '
+                          'persetujuan admin.'
                     : 'Anda akan diarahkan ke dashboard pembeli.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
 
               const SizedBox(height: 32),
@@ -565,34 +536,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // =========================
               // BUTTON DAFTAR
               // =========================
-
               SizedBox(
                 height: 48,
-
                 child: ElevatedButton(
-
-                  onPressed: _isLoading
-                      ? null
-                      : _register,
-
+                  onPressed: _isLoading ? null : _register,
                   style: ElevatedButton.styleFrom(
-
                     backgroundColor: primaryColor,
-
                     disabledBackgroundColor: Colors.grey,
-
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-
                     elevation: 0,
                   ),
-
                   child: _isLoading
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.white,
@@ -600,7 +559,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         )
                       : const Text(
                           'DAFTAR',
-
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -622,46 +580,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // INPUT DECORATION
   // =========================
 
-  InputDecoration _inputDecoration(
-    String hintText,
-  ) {
+  InputDecoration _inputDecoration(String hintText) {
     return InputDecoration(
-
       hintText: hintText,
-
-      hintStyle: TextStyle(
-        color: Colors.grey.shade400,
-        fontSize: 14,
-      ),
-
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
-
+      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-
-        borderSide: const BorderSide(
-          color: Colors.grey,
-        ),
+        borderSide: const BorderSide(color: Colors.grey),
       ),
-
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-
-        borderSide: BorderSide(
-          color: Colors.grey.shade400,
-        ),
+        borderSide: BorderSide(color: Colors.grey.shade400),
       ),
-
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-
-        borderSide: BorderSide(
-          color: primaryColor,
-          width: 1.5,
-        ),
+        borderSide: BorderSide(color: primaryColor, width: 1.5),
       ),
     );
   }
