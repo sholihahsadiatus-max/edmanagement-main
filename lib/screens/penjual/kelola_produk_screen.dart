@@ -26,10 +26,15 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
     _ambilProduk();
   }
 
+  // ==================================================
+  // AMBIL PRODUK DARI SUPABASE
+  // ==================================================
   Future<void> _ambilProduk() async {
     final user = supabase.auth.currentUser;
 
     if (user == null) {
+      if (!mounted) return;
+
       setState(() {
         loading = false;
         errorMessage = 'Sesi login tidak ditemukan. Silakan login kembali.';
@@ -65,17 +70,32 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
     }
   }
 
+  // ==================================================
+  // TAMBAH DAN EDIT PRODUK
+  // ==================================================
+
   Future<void> _bukaForm({Map<String, dynamic>? item}) async {
+    debugPrint('MEMBUKA FORM TAMBAH / EDIT PRODUK');
+    debugPrint('MODE EDIT: ${item != null}');
+
     final hasil = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => TambahProdukScreen(product: item)),
     );
 
-    if (hasil == true && mounted) {
+    debugPrint('HASIL DARI FORM: $hasil');
+
+    if (!mounted) return;
+
+    if (hasil == true) {
+      debugPrint('MEMUAT ULANG DAFTAR PRODUK');
       await _ambilProduk();
     }
   }
 
+  // ==================================================
+  // HAPUS PRODUK
+  // ==================================================
   Future<void> _hapusProduk(Map<String, dynamic> item) async {
     final setuju = await showDialog<bool>(
       context: context,
@@ -87,7 +107,9 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () {
+              Navigator.pop(dialogContext, false);
+            },
             child: const Text('Batal'),
           ),
           ElevatedButton(
@@ -95,7 +117,9 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.pop(dialogContext, true),
+            onPressed: () {
+              Navigator.pop(dialogContext, true);
+            },
             child: const Text('Hapus'),
           ),
         ],
@@ -105,7 +129,11 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
     if (setuju != true) return;
 
     final user = supabase.auth.currentUser;
-    if (user == null) return;
+
+    if (user == null) {
+      _tampilkanPesan('Sesi login tidak ditemukan.');
+      return;
+    }
 
     try {
       await supabase
@@ -116,25 +144,54 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Produk berhasil dihapus.')));
+      _tampilkanPesan('Produk berhasil dihapus.');
 
       await _ambilProduk();
+    } on PostgrestException catch (e) {
+      _tampilkanPesan('Gagal menghapus produk: ${e.message}');
     } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal menghapus produk: $e')));
+      _tampilkanPesan('Gagal menghapus produk: $e');
     }
   }
 
+  // ==================================================
+  // FORMAT HARGA
+  // ==================================================
   String _formatHarga(dynamic harga) {
     final nilai = double.tryParse(harga.toString()) ?? 0;
+
     return 'Rp ${nilai.toStringAsFixed(0)}';
   }
 
+  // ==================================================
+  // FORMAT VARIAN
+  // ==================================================
+  String _formatVarian(dynamic dataVarian) {
+    if (dataVarian == null) return '';
+
+    if (dataVarian is List) {
+      return dataVarian
+          .map((v) => v.toString())
+          .where((v) => v.trim().isNotEmpty)
+          .join(', ');
+    }
+
+    // Mendukung data lama yang tersimpan sebagai teks.
+    return dataVarian.toString().trim();
+  }
+
+  // ==================================================
+  // PESAN
+  // ==================================================
+  void _tampilkanPesan(String pesan) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pesan)));
+  }
+
+  // ==================================================
+  // TAMPILAN UTAMA
+  // ==================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -144,6 +201,7 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // JUDUL DAN TOMBOL TAMBAH
             Row(
               children: [
                 const Expanded(
@@ -163,18 +221,23 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 8),
+
             const Text(
               'Kelola produk yang ditampilkan kepada pembeli.',
               style: TextStyle(color: Colors.grey),
             ),
+
             const SizedBox(height: 20),
 
+            // KONDISI LOADING
             if (loading)
               const Padding(
                 padding: EdgeInsets.all(40),
                 child: Center(child: CircularProgressIndicator(color: hijau)),
               )
+            // KONDISI ERROR
             else if (errorMessage != null)
               Container(
                 padding: const EdgeInsets.all(20),
@@ -199,6 +262,7 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                   ],
                 ),
               )
+            // KONDISI PRODUK KOSONG
             else if (produk.isEmpty)
               Container(
                 padding: const EdgeInsets.all(24),
@@ -231,10 +295,15 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                   ],
                 ),
               )
+            // DAFTAR PRODUK
             else
               ...produk.map((item) {
                 final foto = item['foto_url']?.toString() ?? '';
+
                 final stok = item['stok'] ?? 0;
+
+                // TAMBAHAN VARIAN PRODUK
+                final teksVarian = _formatVarian(item['varian']);
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -246,6 +315,7 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // FOTO PRODUK
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: SizedBox(
@@ -255,16 +325,22 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                               ? Image.network(
                                   foto,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => _placeholderFoto(),
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return _placeholderFoto();
+                                  },
                                 )
                               : _placeholderFoto(),
                         ),
                       ),
+
                       const SizedBox(width: 12),
+
+                      // INFORMASI PRODUK
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // NAMA PRODUK
                             Text(
                               item['nama_produk']?.toString() ?? '-',
                               style: const TextStyle(
@@ -272,7 +348,10 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                                 fontSize: 15,
                               ),
                             ),
+
                             const SizedBox(height: 4),
+
+                            // KATEGORI
                             Text(
                               item['kategori']?.toString() ?? '-',
                               style: const TextStyle(
@@ -280,7 +359,10 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                                 fontSize: 12,
                               ),
                             ),
+
                             const SizedBox(height: 6),
+
+                            // HARGA
                             Text(
                               _formatHarga(item['harga']),
                               style: const TextStyle(
@@ -288,13 +370,49 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+
+                            const SizedBox(height: 4),
+
+                            // STOK
                             Text(
                               'Stok: $stok',
                               style: const TextStyle(fontSize: 12),
                             ),
+
+                            // VARIAN
+                            if (teksVarian.isNotEmpty && teksVarian != '[]')
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Varian: $teksVarian',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+
+                            // DESKRIPSI
+                            if ((item['deskripsi']?.toString() ?? '')
+                                .trim()
+                                .isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  item['deskripsi'].toString(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
+
+                      // MENU EDIT DAN HAPUS
                       PopupMenuButton<String>(
                         onSelected: (pilihan) {
                           if (pilihan == 'edit') {
@@ -324,6 +442,9 @@ class _KelolaProdukScreenState extends State<KelolaProdukScreen> {
     );
   }
 
+  // ==================================================
+  // FOTO PENGGANTI JIKA FOTO TIDAK TERSEDIA
+  // ==================================================
   Widget _placeholderFoto() {
     return Container(
       color: Colors.grey.shade100,
