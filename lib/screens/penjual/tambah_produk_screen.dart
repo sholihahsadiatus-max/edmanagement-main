@@ -594,9 +594,17 @@ class _TambahProdukScreenState extends State<TambahProdukScreen> {
                 onPressed: _loading
                     ? null
                     : () {
-                        debugPrint('TOMBOL SIMPAN DIKLIK');
+                        debugPrint('1. TOMBOL SIMPAN DIKLIK');
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Tombol Simpan berhasil ditekan'),
+                          ),
+                        );
+
                         _simpanProduk();
                       },
+
                 style: ElevatedButton.styleFrom(
                   backgroundColor: hijau,
                   foregroundColor: Colors.white,
