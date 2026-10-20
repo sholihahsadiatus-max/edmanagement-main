@@ -4,7 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'detail_produk_screen.dart';
 import 'cart_screen.dart';
 import 'akun_screen.dart';
+import 'kategori_screen.dart';
 import 'kategori_menu_screen.dart';
+import 'toko_penjual_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,12 +30,81 @@ class _HomeScreenState extends State<HomeScreen> {
 
   late Future<List<Map<String, String>>> _produkFuture;
 
+  // ==========================================
+  // PRODUK LOKAL CADANGAN
+  // ==========================================
+  final List<Map<String, String>> products = [
+    {
+      'name': 'Tas Rajut',
+      'nama_produk': 'Tas Rajut',
+      'price': 'Rp17.000',
+      'harga': '17000',
+      'image': 'assets/tas rajut.jpeg',
+      'foto_url': '',
+      'seller_id': '',
+      'nama_penjual': 'Penjual UMKM',
+      'kategori': 'Kerajinan',
+      'stok': '10',
+      'deskripsi': '',
+      'varian': '',
+      'id': '',
+    },
+    {
+      'name': 'Keripik Pisang',
+      'nama_produk': 'Keripik Pisang',
+      'price': 'Rp10.000',
+      'harga': '10000',
+      'image': 'assets/rojomolo.jpeg',
+      'foto_url': '',
+      'seller_id': '',
+      'nama_penjual': 'Penjual UMKM',
+      'kategori': 'Makanan',
+      'stok': '10',
+      'deskripsi': '',
+      'varian': '',
+      'id': '',
+    },
+    {
+      'name': 'Kopi Cendana',
+      'nama_produk': 'Kopi Cendana',
+      'price': 'Rp25.000',
+      'harga': '25000',
+      'image': 'assets/kopi cendono.jpeg',
+      'foto_url': '',
+      'seller_id': '',
+      'nama_penjual': 'Penjual UMKM',
+      'kategori': 'Minuman',
+      'stok': '10',
+      'deskripsi': '',
+      'varian': '',
+      'id': '',
+    },
+    {
+      'name': 'Stik Kelor',
+      'nama_produk': 'Stik Kelor',
+      'price': 'Rp12.000',
+      'harga': '12000',
+      'image': 'assets/tiktik daun kelor.jpeg',
+      'foto_url': '',
+      'seller_id': '',
+      'nama_penjual': 'Penjual UMKM',
+      'kategori': 'Makanan',
+      'stok': '10',
+      'deskripsi': '',
+      'varian': '',
+      'id': '',
+    },
+  ];
+
+  // ==========================================
+  // KATEGORI
+  // ==========================================
   final List<Map<String, dynamic>> categories = [
-    {'name': 'Makanan', 'icon': Icons.fastfood_outlined},
-    {'name': 'Minuman', 'icon': Icons.local_cafe_outlined},
-    {'name': 'Kerajinan', 'icon': Icons.shopping_bag_outlined},
-    {'name': 'Fashion', 'icon': Icons.checkroom_outlined},
-    {'name': 'Lainnya', 'icon': Icons.category_outlined},
+    {'icon': Icons.restaurant, 'label': 'Makanan'},
+    {'icon': Icons.local_drink, 'label': 'Minuman'},
+    {'icon': Icons.brush, 'label': 'Kerajinan'},
+    {'icon': Icons.shopping_bag, 'label': 'Fashion'},
+    {'icon': Icons.more_horiz, 'label': 'Lainnya'},
   ];
 
   @override
@@ -50,117 +121,187 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // =====================================================
-  // MENGAMBIL PROFIL PEMBELI
-  // =====================================================
+  // ==========================================
+  // FORMAT HARGA
+  // ==========================================
+  String _formatHarga(dynamic harga) {
+    final int nilai = harga is num
+        ? harga.toInt()
+        : int.tryParse(harga?.toString() ?? '') ?? 0;
 
+    final String angka = nilai.toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (match) => '.',
+    );
+
+    return 'Rp$angka';
+  }
+
+  // ==========================================
+  // AMBIL DATA USER
+  // ==========================================
   Future<void> _getNamaUser() async {
     try {
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
 
-      if (user == null) return;
+      if (user == null) {
+        debugPrint('USER BELUM LOGIN');
+        return;
+      }
 
-      final response = await supabase
+      final data = await supabase
           .from('profiles')
-          .select('nama, email')
+          .select('id, nama, email')
           .eq('id', user.id)
           .maybeSingle();
 
-      if (!mounted || response == null) return;
+      if (!mounted) return;
 
-      setState(() {
-        _namaUser = response['nama']?.toString() ?? 'Pengguna';
-
-        _emailUser = response['email']?.toString() ?? user.email ?? '';
-      });
+      if (data != null) {
+        setState(() {
+          _namaUser = data['nama']?.toString() ?? 'Pengguna';
+          _emailUser = data['email']?.toString() ?? user.email ?? '';
+        });
+      } else {
+        setState(() {
+          _emailUser = user.email ?? '';
+        });
+      }
     } catch (e) {
-      debugPrint('Gagal mengambil profil: $e');
+      debugPrint('ERROR AMBIL PROFILE: $e');
     }
   }
 
-  // =====================================================
-  // MENGAMBIL PRODUK DARI SUPABASE
-  // =====================================================
-
+  // ==========================================
+  // AMBIL PRODUK DARI SUPABASE
+  // SEKALIGUS AMBIL NAMA PENJUAL
+  // ==========================================
   Future<List<Map<String, String>>> _getProdukTersedia() async {
     final supabase = Supabase.instance.client;
 
-    final response = await supabase
-        .from('products')
-        .select('''
-        id,
-        seller_id,
-        nama_produk,
-        kategori,
-        harga,
-        stok,
-        deskripsi,
-        foto_url,
-        varian,
-        created_at
-      ''')
-        .gt('stok', 0)
-        .order('created_at', ascending: false);
+    try {
+      final response = await supabase
+          .from('products')
+          .select('''
+            id,
+            seller_id,
+            nama_produk,
+            kategori,
+            harga,
+            stok,
+            deskripsi,
+            foto_url,
+            varian,
+            created_at
+          ''')
+          .gt('stok', 0)
+          .order('created_at', ascending: false);
 
-    debugPrint('JUMLAH PRODUK DARI SUPABASE: ${response.length}');
-    debugPrint('DATA PRODUK: $response');
+      final List<Map<String, dynamic>> produkDatabase =
+          List<Map<String, dynamic>>.from(response);
 
-    final List<Map<String, String>> hasil = [];
+      if (produkDatabase.isEmpty) {
+        return products;
+      }
 
-    for (final item in response) {
-      final produk = Map<String, dynamic>.from(item);
+      // Kumpulkan ID penjual yang berbeda.
+      final Set<String> sellerIds = produkDatabase
+          .map((produk) => produk['seller_id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet();
 
-      final namaProduk = produk['nama_produk']?.toString() ?? '';
-      final harga = produk['harga']?.toString() ?? '0';
-      final hargaAngka = double.tryParse(harga)?.toInt() ?? 0;
+      final Map<String, String> namaPenjualMap = {};
 
-      final hargaFormat = hargaAngka.toString().replaceAllMapped(
-        RegExp(r'\B(?=(\d{3})+(?!\d))'),
-        (match) => '.',
-      );
+      // Ambil profil penjual secara terpisah agar pengambilan
+      // katalog produk tidak bergantung pada nested join.
+      if (sellerIds.isNotEmpty) {
+        try {
+          final profiles = await supabase
+              .from('profiles')
+              .select('id, nama, role, seller_status')
+              .inFilter('id', sellerIds.toList());
 
-      final foto = produk['foto_url']?.toString() ?? '';
+          for (final profile in profiles) {
+            final id = profile['id']?.toString() ?? '';
+            final nama = profile['nama']?.toString() ?? '';
+            final role = profile['role']?.toString() ?? '';
+            final status = profile['seller_status']?.toString() ?? '';
 
-      hasil.add({
-        'id': produk['id']?.toString() ?? '',
-        'seller_id': produk['seller_id']?.toString() ?? '',
-        'nama_produk': namaProduk,
-        'kategori': produk['kategori']?.toString() ?? '',
-        'harga': harga,
-        'stok': produk['stok']?.toString() ?? '0',
-        'deskripsi': produk['deskripsi']?.toString() ?? '',
-        'foto_url': foto,
-        'varian': produk['varian']?.toString() ?? '',
-        'created_at': produk['created_at']?.toString() ?? '',
-        'name': namaProduk,
-        'price': 'Rp$hargaFormat',
-        'image': foto,
-      });
+            if (id.isNotEmpty && role == 'seller' && status == 'approved') {
+              namaPenjualMap[id] = nama.isNotEmpty ? nama : 'Penjual UMKM';
+            }
+          }
+        } catch (e) {
+          debugPrint('ERROR AMBIL PROFIL PENJUAL: $e');
+        }
+      }
+
+      // Gabungkan data produk dengan nama penjual.
+      return produkDatabase.map((produk) {
+        final sellerId = produk['seller_id']?.toString() ?? '';
+
+        final namaProduk = produk['nama_produk']?.toString() ?? '';
+
+        final harga = produk['harga'];
+        final fotoUrl = produk['foto_url']?.toString() ?? '';
+
+        final varian = produk['varian'];
+
+        return <String, String>{
+          'id': produk['id']?.toString() ?? '',
+          'seller_id': sellerId,
+          'nama_produk': namaProduk,
+          'name': namaProduk,
+          'kategori': produk['kategori']?.toString() ?? '',
+          'harga': harga?.toString() ?? '0',
+          'price': _formatHarga(harga),
+          'stok': produk['stok']?.toString() ?? '0',
+          'deskripsi': produk['deskripsi']?.toString() ?? '',
+          'foto_url': fotoUrl,
+          'image': fotoUrl,
+          'varian': varian == null
+              ? ''
+              : varian is String
+              ? varian
+              : varian.toString(),
+          'created_at': produk['created_at']?.toString() ?? '',
+          'nama_penjual': namaPenjualMap[sellerId] ?? 'Penjual UMKM',
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint('ERROR AMBIL PRODUK: $e');
+
+      // Produk lokal tetap ditampilkan jika database gagal.
+      return products;
     }
-
-    return hasil;
   }
 
-  // =====================================================
+  // ==========================================
   // REFRESH PRODUK
-  // =====================================================
-
+  // ==========================================
   Future<void> _refreshProduk() async {
-    final futureBaru = _getProdukTersedia();
-
     setState(() {
-      _produkFuture = futureBaru;
+      _produkFuture = _getProdukTersedia();
     });
 
-    await futureBaru;
+    await _produkFuture;
   }
 
-  // =====================================================
-  // NAVIGASI BAWAH
-  // =====================================================
-
+  // ==========================================
+  // BOTTOM NAVIGATION
+  // ==========================================
   void _onBottomNavigationTap(int index) {
+    // Keranjang
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CartScreen()),
+      );
+      return;
+    }
+
+    // Kategori
     if (index == 1) {
       Navigator.push(
         context,
@@ -169,442 +310,203 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    if (index == 2) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => CartScreen()),
-      );
-      return;
-    }
-
+    // Beranda / Akun
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  // =====================================================
-  // MEMBUKA KATEGORI
-  // =====================================================
-
-  void _openCategory(String category) {
+  // ==========================================
+  // BUKA KATEGORI
+  // ==========================================
+  void _openCategory(String kategori) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => KategoriMenuScreen()),
+      MaterialPageRoute(
+        builder: (context) => KategoriScreen(kategori: kategori),
+      ),
     );
   }
 
-  // =====================================================
-  // KONTEN BERANDA
-  // =====================================================
+  // ==========================================
+  // BUKA DETAIL PRODUK
+  // ==========================================
+  void _openDetail(Map<String, String> item) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetailProductScreen(product: item),
+      ),
+    );
+  }
 
-  Widget _buildHomeContent() {
-    return RefreshIndicator(
-      onRefresh: _refreshProduk,
-      color: primaryColor,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+  // ==========================================
+  // BUKA TOKO PENJUAL
+  // ==========================================
+  void _openToko(String sellerId, String namaPenjual) {
+    if (sellerId.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            TokoPenjualScreen(sellerId: sellerId, namaPenjual: namaPenjual),
+      ),
+    );
+  }
+
+  // ==========================================
+  // GAMBAR PRODUK
+  // ==========================================
+  Widget _buildProductImage(Map<String, String> item) {
+    final imageUrl = item['foto_url'] ?? '';
+    final imagePath = item['image'] ?? '';
+
+    if (imageUrl.isNotEmpty) {
+      return Image.network(
+        imageUrl,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _gambarKosong();
+        },
+      );
+    }
+
+    if (imagePath.isNotEmpty) {
+      return Image.asset(
+        imagePath,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _gambarKosong();
+        },
+      );
+    }
+
+    return _gambarKosong();
+  }
+
+  Widget _gambarKosong() {
+    return Container(
+      width: double.infinity,
+      color: Colors.grey.shade300,
+      child: const Icon(
+        Icons.image_not_supported,
+        color: Colors.grey,
+        size: 35,
+      ),
+    );
+  }
+
+  // ==========================================
+  // KARTU PRODUK
+  // ==========================================
+  Widget _buildProductCard(Map<String, String> item) {
+    final name = item['name'] ?? '';
+    final price = item['price'] ?? '';
+    final sellerId = item['seller_id'] ?? '';
+    final namaPenjual = item['nama_penjual'] ?? 'Penjual UMKM';
+
+    return GestureDetector(
+      onTap: () {
+        _openDetail(item);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // GAMBAR
+            Expanded(
+              child: SizedBox(
+                width: double.infinity,
+                child: _buildProductImage(item),
+              ),
+            ),
+
+            // INFORMASI PRODUK
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const SizedBox(height: 5),
+
+                  Text(
+                    price,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // NAMA PENJUAL
+                  Row(
                     children: [
-                      const Text(
-                        'Selamat datang,',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      Icon(
+                        Icons.storefront_outlined,
+                        size: 13,
+                        color: primaryColor,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Hi, $_namaUser',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w600,
-                          color: primaryColor,
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          namaPenjual,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black87,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Temukan produk UMKM favoritmu',
-                        style: TextStyle(fontSize: 12, color: Colors.black54),
                       ),
                     ],
                   ),
-                ),
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.shopping_bag_outlined,
-                    size: 28,
-                    color: primaryColor,
-                  ),
-                ),
-              ],
-            ),
 
-            const SizedBox(height: 22),
+                  const SizedBox(height: 4),
 
-            // PENCARIAN
-            TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.trim().toLowerCase();
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Cari Produk',
-                hintStyle: const TextStyle(fontSize: 13),
-                prefixIcon: Icon(Icons.search, color: primaryColor),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        onPressed: () {
-                          _searchController.clear();
-
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                        icon: const Icon(Icons.close),
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: primaryColor),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // KATEGORI
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Kategori',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                TextButton(
-                  onPressed: () => _onBottomNavigationTap(1),
-                  child: Text(
-                    'Lihat semua',
-                    style: TextStyle(color: primaryColor, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            SizedBox(
-              height: 94,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-
-                  return GestureDetector(
-                    onTap: () {
-                      _openCategory(category['name'].toString());
-                    },
-                    child: Container(
-                      width: 76,
-                      margin: const EdgeInsets.only(right: 12),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: primaryColor.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              category['icon'] as IconData,
-                              color: primaryColor,
-                              size: 25,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            category['name'].toString(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
-            // JUDUL PRODUK
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Produk Terbaru',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-                Icon(Icons.storefront_outlined, color: primaryColor),
-              ],
-            ),
-
-            const SizedBox(height: 14),
-
-            // DAFTAR PRODUK DARI SUPABASE
-            FutureBuilder<List<Map<String, String>>>(
-              future: _produkFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: CircularProgressIndicator(color: primaryColor),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 36,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Gagal memuat produk',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${snapshot.error}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _produkFuture = _getProdukTersedia();
-                            });
-                          },
-                          child: const Text('Coba lagi'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                final semuaProduk = snapshot.data ?? [];
-
-                final produkTampil = semuaProduk.where((produk) {
-                  final nama = (produk['name'] ?? '').toLowerCase();
-
-                  final kategori = (produk['kategori'] ?? '').toLowerCase();
-
-                  return nama.contains(_searchQuery) ||
-                      kategori.contains(_searchQuery);
-                }).toList();
-
-                if (produkTampil.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 32,
-                      horizontal: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.inventory_2_outlined,
-                          size: 44,
-                          color: Colors.grey.shade400,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _searchQuery.isNotEmpty
-                              ? 'Produk tidak ditemukan'
-                              : 'Belum ada produk tersedia',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        const Text(
-                          'Produk dari penjual yang disetujui '
-                          'admin akan ditampilkan di sini.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: produkTampil.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 0.64,
-                  ),
-                  itemBuilder: (context, index) {
-                    final item = produkTampil[index];
-
-                    final imageUrl = item['image'] ?? '';
-                    final namaProduk = item['name'] ?? '';
-                    final hargaProduk = item['price'] ?? 'Rp0';
-
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                  // TOMBOL LIHAT TOKO
+                  if (sellerId.isNotEmpty)
+                    InkWell(
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                DetailProductScreen(product: item),
-                          ),
-                        );
+                        _openToko(sellerId, namaPenjual);
                       },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: imageUrl.isNotEmpty
-                                    ? Image.network(
-                                        imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                              return Container(
-                                                color: Colors.grey.shade100,
-                                                child: Icon(
-                                                  Icons.image_not_supported,
-                                                  size: 42,
-                                                  color: Colors.grey.shade400,
-                                                ),
-                                              );
-                                            },
-                                      )
-                                    : Container(
-                                        color: Colors.grey.shade100,
-                                        child: Icon(
-                                          Icons.image_outlined,
-                                          size: 42,
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    namaProduk,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 7),
-                                  Text(
-                                    hargaProduk,
-                                    maxLines: 1,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.inventory_2_outlined,
-                                        size: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          'Stok ${item['stok'] ?? '0'}',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Text(
+                          'Lihat Toko →',
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    );
-                  },
-                );
-              },
+                    ),
+                ],
+              ),
             ),
           ],
         ),
@@ -612,33 +514,263 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // =====================================================
-  // TAMPILAN UTAMA
-  // =====================================================
+  // ==========================================
+  // HALAMAN BERANDA
+  // ==========================================
+  Widget _buildHomeContent() {
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _refreshProduk,
+        color: primaryColor,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // HEADER
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hi, $_namaUser',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Temukan produk UMKM\nterbaik di sini',
+                          style: TextStyle(fontSize: 14, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Color(0xFFE8F5EF),
+                    child: Icon(
+                      Icons.shopping_bag_outlined,
+                      color: Color(0xFF006B42),
+                      size: 24,
+                    ),
+                  ),
+                ],
+              ),
 
+              const SizedBox(height: 20),
+
+              // SEARCH
+              TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.trim().toLowerCase();
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Cari Produk',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                            });
+                          },
+                          icon: const Icon(Icons.close),
+                        )
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: const BorderSide(color: Colors.grey),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(25),
+                    borderSide: BorderSide(color: primaryColor),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // KATEGORI
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: categories.map((cat) {
+                  final String categoryName = cat['label']?.toString() ?? '';
+
+                  return GestureDetector(
+                    onTap: () {
+                      _openCategory(categoryName);
+                    },
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: primaryColor,
+                          child: Icon(
+                            cat['icon'] as IconData? ?? Icons.category,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          categoryName,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+
+              const SizedBox(height: 28),
+
+              // JUDUL PRODUK
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Produk Terbaru',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  GestureDetector(
+                    onTap: _refreshProduk,
+                    child: Text(
+                      'Lihat Semua',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // GRID PRODUK
+              FutureBuilder<List<Map<String, String>>>(
+                future: _produkFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(30),
+                        child: CircularProgressIndicator(color: primaryColor),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          children: [
+                            const Text('Produk belum dapat dimuat.'),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _refreshProduk,
+                              child: const Text('Coba Lagi'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final semuaProduk = snapshot.data ?? products;
+
+                  final hasilPencarian = semuaProduk.where((item) {
+                    final nama = (item['name'] ?? '').toLowerCase();
+                    final kategori = (item['kategori'] ?? '').toLowerCase();
+                    final penjual = (item['nama_penjual'] ?? '').toLowerCase();
+
+                    return nama.contains(_searchQuery) ||
+                        kategori.contains(_searchQuery) ||
+                        penjual.contains(_searchQuery);
+                  }).toList();
+
+                  if (hasilPencarian.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('Produk tidak ditemukan.'),
+                      ),
+                    );
+                  }
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: hasilPencarian.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 0.62,
+                        ),
+                    itemBuilder: (context, index) {
+                      final item = hasilPencarian[index];
+                      return _buildProductCard(item);
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // BUILD
+  // ==========================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: _selectedIndex == 3
-            ? AkunScreen(
-                nama: _namaUser,
-                email: _emailUser,
-                showScaffold: false,
-                onProfileUpdated: _getNamaUser,
-              )
-            : _buildHomeContent(),
-      ),
+
+      body: _selectedIndex == 3
+          ? AkunScreen(
+              nama: _namaUser,
+              email: _emailUser,
+              showScaffold: false,
+              onProfileUpdated: _getNamaUser,
+            )
+          : _buildHomeContent(),
+
+      // BOTTOM NAVIGATION
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onBottomNavigationTap,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: primaryColor,
         unselectedItemColor: Colors.grey,
-        backgroundColor: Colors.white,
-        selectedFontSize: 11,
-        unselectedFontSize: 11,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -646,8 +778,8 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Beranda',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.category_outlined),
-            activeIcon: Icon(Icons.category),
+            icon: Icon(Icons.grid_view_outlined),
+            activeIcon: Icon(Icons.grid_view),
             label: 'Kategori',
           ),
           BottomNavigationBarItem(

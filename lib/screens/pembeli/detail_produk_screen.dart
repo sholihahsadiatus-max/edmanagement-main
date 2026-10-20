@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'cart_screen.dart';
 import 'toko_penjual_screen.dart';
+import 'chat_penjual_screen.dart';
 
 class DetailProductScreen extends StatefulWidget {
   final Map<String, String> product;
@@ -19,6 +20,7 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
   bool _isFavorite = false;
 
   final Color primaryColor = const Color(0xFF006B42);
+  final supabase = Supabase.instance.client;
 
   // =========================================================
   // MENGAMBIL VARIAN PRODUK
@@ -31,7 +33,6 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
       return [];
     }
 
-    // Mendukung format JSONB seperti ["kg", "500 gram"].
     if (rawVariant.startsWith('[') && rawVariant.endsWith(']')) {
       final content = rawVariant.substring(1, rawVariant.length - 1);
 
@@ -109,6 +110,225 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
   }
 
   // =========================================================
+  // FOTO PROFIL PENJUAL
+  // =========================================================
+
+  Widget _buildSellerAvatar(String fotoProfil) {
+    if (fotoProfil.startsWith('http://') || fotoProfil.startsWith('https://')) {
+      return CircleAvatar(
+        radius: 25,
+        backgroundColor: primaryColor.withValues(alpha: 0.10),
+        backgroundImage: NetworkImage(fotoProfil),
+        onBackgroundImageError: (exception, stackTrace) {},
+      );
+    }
+
+    return CircleAvatar(
+      radius: 25,
+      backgroundColor: primaryColor.withValues(alpha: 0.10),
+      child: Icon(Icons.storefront, color: primaryColor, size: 28),
+    );
+  }
+
+  // =========================================================
+  // STATUS TOKO
+  // =========================================================
+
+  Widget _buildStoreStatus(String sellerId) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: supabase
+          .from('store_settings')
+          .select('is_open, jam_buka, jam_tutup')
+          .eq('seller_id', sellerId)
+          .maybeSingle(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Text(
+            'Status toko tidak dapat dimuat.',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Text(
+            'Memuat status toko...',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          );
+        }
+
+        final store = snapshot.data;
+
+        if (store == null) {
+          return const Text(
+            'Status toko belum diatur',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          );
+        }
+
+        final isOpen = store['is_open'] == true;
+        final openTime = store['jam_buka']?.toString() ?? '';
+        final closeTime = store['jam_tutup']?.toString() ?? '';
+
+        final hours = openTime.isNotEmpty && closeTime.isNotEmpty
+            ? ' • $openTime - $closeTime'
+            : '';
+
+        return Row(
+          children: [
+            Icon(
+              Icons.circle,
+              size: 9,
+              color: isOpen ? Colors.green : Colors.red,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                '${isOpen ? 'Toko buka' : 'Toko tutup'}$hours',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isOpen ? Colors.green.shade700 : Colors.red,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // =========================================================
+  // RATING DAN ULASAN PENJUAL
+  // =========================================================
+
+  Widget _buildSellerRating(String sellerId) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: supabase
+          .from('reviews')
+          .select('rating, ulasan, created_at')
+          .eq('seller_id', sellerId)
+          .order('created_at', ascending: false),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Text(
+            'Rating belum dapat dimuat.',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Text(
+            'Memuat rating...',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          );
+        }
+
+        final reviews = snapshot.data ?? [];
+
+        final ratings = reviews
+            .map((review) => int.tryParse(review['rating'].toString()) ?? 0)
+            .where((rating) => rating >= 1 && rating <= 5)
+            .toList();
+
+        if (ratings.isEmpty) {
+          return const Text(
+            'Belum ada rating',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          );
+        }
+
+        final average = ratings.reduce((a, b) => a + b) / ratings.length;
+
+        return InkWell(
+          onTap: () {
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              builder: (context) {
+                return SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.65,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Rating dan Ulasan',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${average.toStringAsFixed(1)} dari 5 '
+                            '(${ratings.length} rating)',
+                          ),
+                          const Divider(height: 24),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: reviews.length,
+                              itemBuilder: (context, index) {
+                                final review = reviews[index];
+                                final rating =
+                                    int.tryParse(review['rating'].toString()) ??
+                                    0;
+                                final comment =
+                                    review['ulasan']?.toString() ?? '';
+
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(
+                                    Icons.person_outline,
+                                    color: Colors.grey,
+                                  ),
+                                  title: Row(
+                                    children: List.generate(
+                                      5,
+                                      (i) => Icon(
+                                        i < rating
+                                            ? Icons.star
+                                            : Icons.star_border,
+                                        size: 17,
+                                        color: Colors.amber,
+                                      ),
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    comment.isEmpty
+                                        ? 'Tanpa komentar'
+                                        : comment,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+          child: Row(
+            children: [
+              const Icon(Icons.star, color: Colors.amber, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                '${average.toStringAsFixed(1)} (${ratings.length})',
+                style: const TextStyle(fontSize: 11, color: Colors.black54),
+              ),
+              const SizedBox(width: 3),
+              const Icon(Icons.chevron_right, size: 15, color: Colors.grey),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // =========================================================
   // AKUN PENJUAL
   // =========================================================
 
@@ -119,12 +339,11 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
       return const SizedBox.shrink();
     }
 
-    return FutureBuilder<Map<String, dynamic>?>(
-      future: Supabase.instance.client
-          .from('profiles')
-          .select('id, nama, role, seller_status')
-          .eq('id', sellerId)
-          .maybeSingle(),
+    return FutureBuilder<List<dynamic>>(
+      future: supabase.rpc(
+        'get_public_seller_profile',
+        params: {'p_seller_id': sellerId},
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
@@ -139,20 +358,37 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
           );
         }
 
-        if (snapshot.hasError || !snapshot.hasData) {
-          return const SizedBox.shrink();
+        if (snapshot.hasError) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              'Gagal memuat profil penjual: ${snapshot.error}',
+              style: const TextStyle(color: Colors.red),
+            ),
+          );
         }
 
-        final seller = snapshot.data!;
-
-        if (seller['role'] != 'seller' ||
-            seller['seller_status'] != 'approved') {
-          return const SizedBox.shrink();
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('Data profil penjual tidak ditemukan.'),
+          );
         }
+
+        final seller = Map<String, dynamic>.from(snapshot.data!.first as Map);
 
         final namaPenjual = seller['nama']?.toString().trim().isNotEmpty == true
             ? seller['nama'].toString()
             : 'Penjual UMKM';
+
+        final fotoProfil = seller['foto_profil']?.toString() ?? '';
+        final alamatPenjual = seller['alamat']?.toString() ?? '';
+        final nomorHp = seller['no_handphone']?.toString() ?? '';
 
         return Container(
           margin: const EdgeInsets.symmetric(vertical: 12),
@@ -162,62 +398,128 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: primaryColor.withValues(alpha: 0.10),
-                child: Icon(Icons.storefront, color: primaryColor, size: 28),
+              Row(
+                children: [
+                  _buildSellerAvatar(fotoProfil),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Penjual',
+                          style: TextStyle(color: Colors.black54, fontSize: 12),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          namaPenjual,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Penjual terverifikasi',
+                          style: TextStyle(fontSize: 11, color: primaryColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: 'Chat penjual',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChatPenjualScreen(
+                            sellerId: sellerId,
+                            namaPenjual: namaPenjual,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.chat_outlined, color: primaryColor),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+
+              if (alamatPenjual.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Penjual',
-                      style: TextStyle(color: Colors.black54, fontSize: 12),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 17,
+                      color: primaryColor,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      namaPenjual,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        alamatPenjual,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Penjual terverifikasi',
-                      style: TextStyle(fontSize: 11, color: primaryColor),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: primaryColor,
-                  side: BorderSide(color: primaryColor),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TokoPenjualScreen(
-                        sellerId: sellerId,
-                        namaPenjual: namaPenjual,
+              ],
+
+              if (nomorHp.isNotEmpty) ...[
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    Icon(Icons.phone_outlined, size: 17, color: primaryColor),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        nomorHp,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
                       ),
                     ),
-                  );
-                },
-                child: const Text('Lihat Toko', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 10),
+              _buildStoreStatus(sellerId),
+              const SizedBox(height: 8),
+              _buildSellerRating(sellerId),
+              const SizedBox(height: 12),
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primaryColor,
+                    side: BorderSide(color: primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TokoPenjualScreen(
+                          sellerId: sellerId,
+                          namaPenjual: namaPenjual,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Lihat Toko'),
+                ),
               ),
             ],
           ),
@@ -345,7 +647,7 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
 
             const SizedBox(height: 10),
 
-            // REVISI: AKUN PENJUAL DAN TOMBOL LIHAT TOKO
+            // PROFIL, STATUS, RATING, CHAT DAN TOKO PENJUAL
             _buildSellerSection(),
 
             const SizedBox(height: 12),
