@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'cart_screen.dart';
 
 class TokoPenjualScreen extends StatefulWidget {
   final String sellerId;
@@ -29,6 +30,10 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
     super.initState();
     _loadData();
   }
+
+  // ============================================================
+  // MEMUAT DATA
+  // ============================================================
 
   void _loadData() {
     _productsFuture = _loadProducts();
@@ -76,10 +81,78 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
     return List<Map<String, dynamic>>.from(result);
   }
 
-  String _rupiah(dynamic value) {
-    final number = double.tryParse(value.toString()) ?? 0;
-    return 'Rp${number.toInt().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}';
+  // ============================================================
+  // KONVERSI HARGA
+  // ============================================================
+
+  int _convertPrice(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+
+    return int.tryParse(value.toString().replaceAll(RegExp(r'[^0-9]'), '')) ??
+        0;
   }
+
+  String _rupiah(dynamic value) {
+    final number = _convertPrice(value);
+
+    return 'Rp${number.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}';
+  }
+
+  // ============================================================
+  // TAMBAH PRODUK KE KERANJANG
+  // ============================================================
+
+  void _addToCart(Map<String, dynamic> product) {
+    final int stock = int.tryParse(product['stok']?.toString() ?? '0') ?? 0;
+
+    if (stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Maaf, stok produk sedang habis.')),
+      );
+      return;
+    }
+
+    final String namaProduk =
+        product['nama_produk']?.toString() ?? 'Produk UMKM';
+
+    final int harga = _convertPrice(product['harga']);
+
+    final String foto = product['foto_url']?.toString() ?? '';
+
+    // Mendukung varian dalam bentuk String, List, atau Map.
+    final dynamic varianData = product['varian'];
+    String varian = 'Default';
+
+    if (varianData is String && varianData.trim().isNotEmpty) {
+      varian = varianData;
+    } else if (varianData is List && varianData.isNotEmpty) {
+      varian = varianData.join(', ');
+    } else if (varianData is Map && varianData.isNotEmpty) {
+      varian = varianData.values.join(', ');
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CartScreen(
+          addedProduct: {
+            'product_id': product['id']?.toString(),
+            'name': namaProduk,
+            'variant': varian,
+            'price': harga,
+            'image': foto,
+          },
+          initialQuantity: 1,
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // PROFIL PENJUAL
+  // ============================================================
 
   Widget _profileSection() {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -107,6 +180,7 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
         }
 
         final seller = snapshot.data!.first;
+
         final name = seller['nama']?.toString() ?? widget.namaPenjual;
         final phone = seller['no_handphone']?.toString() ?? '';
         final address = seller['alamat']?.toString() ?? '';
@@ -131,6 +205,7 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
               const SizedBox(height: 12),
               Text(
                 name,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.w600,
@@ -164,12 +239,20 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
     );
   }
 
+  // ============================================================
+  // STATUS TOKO
+  // ============================================================
+
   Widget _storeStatus() {
     return FutureBuilder<Map<String, dynamic>?>(
       future: _storeFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Text('Status toko tidak dapat dimuat.');
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const LinearProgressIndicator();
         }
 
         final store = snapshot.data;
@@ -182,6 +265,10 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
         final openTime = store['jam_buka']?.toString() ?? '';
         final closeTime = store['jam_tutup']?.toString() ?? '';
 
+        final jamToko = openTime.isNotEmpty && closeTime.isNotEmpty
+            ? ' • $openTime - $closeTime'
+            : '';
+
         return Row(
           children: [
             Icon(
@@ -192,8 +279,7 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '${isOpen ? 'Toko sedang buka' : 'Toko sedang tutup'}'
-                '${openTime.isNotEmpty && closeTime.isNotEmpty ? ' • $openTime - $closeTime' : ''}',
+                '${isOpen ? 'Toko sedang buka' : 'Toko sedang tutup'}$jamToko',
                 style: TextStyle(
                   color: isOpen ? Colors.green.shade700 : Colors.red,
                   fontWeight: FontWeight.w500,
@@ -205,6 +291,10 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
       },
     );
   }
+
+  // ============================================================
+  // RATING DAN ULASAN
+  // ============================================================
 
   Widget _ratingSection() {
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -225,6 +315,7 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
         }
 
         final reviews = snapshot.data ?? [];
+
         final ratings = reviews
             .map((review) => int.tryParse(review['rating'].toString()) ?? 0)
             .where((rating) => rating >= 1 && rating <= 5)
@@ -241,11 +332,13 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
               children: [
                 const Icon(Icons.star, color: Colors.amber),
                 const SizedBox(width: 5),
-                Text(
-                  ratings.isEmpty
-                      ? 'Belum ada rating'
-                      : '${average.toStringAsFixed(1)} / 5 (${ratings.length} rating)',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                Expanded(
+                  child: Text(
+                    ratings.isEmpty
+                        ? 'Belum ada rating'
+                        : '${average.toStringAsFixed(1)} / 5 (${ratings.length} rating)',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -292,14 +385,24 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
     );
   }
 
+  // ============================================================
+  // GAMBAR PRODUK: TAMPIL UTUH TANPA CROP
+  // ============================================================
+
   Widget _productImage(String? url) {
     if (url != null && url.startsWith('http')) {
-      return Image.network(
-        url,
-        height: 140,
+      return Container(
         width: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => _imagePlaceholder(),
+        height: 155,
+        color: Colors.white,
+        alignment: Alignment.center,
+        child: Image.network(
+          url,
+          width: double.infinity,
+          height: 155,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => _imagePlaceholder(),
+        ),
       );
     }
 
@@ -308,12 +411,130 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
 
   Widget _imagePlaceholder() {
     return Container(
-      height: 140,
-      color: Colors.grey.shade100,
+      width: double.infinity,
+      height: 155,
+      color: Colors.grey.shade50,
       alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, size: 42, color: Colors.grey),
+      child: Icon(Icons.image_outlined, size: 42, color: Colors.grey.shade400),
     );
   }
+
+  // ============================================================
+  // KARTU PRODUK
+  // ============================================================
+
+  Widget _productCard(Map<String, dynamic> product) {
+    final namaProduk = product['nama_produk']?.toString() ?? 'Produk UMKM';
+
+    final harga = product['harga'] ?? 0;
+
+    final stok = int.tryParse(product['stok']?.toString() ?? '0') ?? 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Foto produk tampil utuh
+          _productImage(product['foto_url']?.toString()),
+
+          // Informasi dan tombol
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Nama produk maksimal dua baris
+                  SizedBox(
+                    height: 36,
+                    child: Text(
+                      namaProduk,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, height: 1.3),
+                    ),
+                  ),
+
+                  const SizedBox(height: 5),
+
+                  // Harga menyesuaikan lebar kartu
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _rupiah(harga),
+                        style: TextStyle(
+                          color: primaryColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 5),
+
+                  Text(
+                    'Stok: $stok',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+
+                  const Spacer(),
+
+                  // Tombol keranjang
+                  SizedBox(
+                    width: double.infinity,
+                    height: 38,
+                    child: ElevatedButton(
+                      onPressed: stok > 0 ? () => _addToCart(product) : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.add_shopping_cart, size: 16),
+                            const SizedBox(width: 5),
+                            Text(
+                              stok > 0 ? 'Tambah ke Keranjang' : 'Stok Habis',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // TAMPILAN UTAMA
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -328,6 +549,7 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           setState(_loadData);
+
           await Future.wait([
             _productsFuture,
             _profileFuture,
@@ -337,13 +559,18 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
         },
         child: ListView(
           children: [
+            // Profil penjual
             _profileSection(),
+
+            // Status toko
             Container(
               margin: const EdgeInsets.only(top: 10),
               color: Colors.white,
               padding: const EdgeInsets.all(16),
               child: _storeStatus(),
             ),
+
+            // Rating dan ulasan
             Container(
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.all(16),
@@ -360,6 +587,8 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
                 ],
               ),
             ),
+
+            // Judul produk
             Container(
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.all(16),
@@ -369,6 +598,8 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
               ),
             ),
+
+            // Daftar produk
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _productsFuture,
               builder: (context, snapshot) {
@@ -404,52 +635,10 @@ class _TokoPenjualScreenState extends State<TokoPenjualScreen> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.72,
+                    childAspectRatio: 0.58,
                   ),
                   itemBuilder: (context, index) {
-                    final product = products[index];
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _productImage(product['foto_url']?.toString()),
-                          Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  product['nama_produk']?.toString() ??
-                                      'Produk UMKM',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _rupiah(product['harga'] ?? 0),
-                                  style: TextStyle(
-                                    color: primaryColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                Text(
-                                  'Stok: ${product['stok'] ?? 0}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
+                    return _productCard(products[index]);
                   },
                 );
               },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'cart_screen.dart';
+import 'cart_service.dart';
 import 'toko_penjual_screen.dart';
 import 'chat_penjual_screen.dart';
 
@@ -36,7 +37,9 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
     if (rawVariant.startsWith('[') && rawVariant.endsWith(']')) {
       final content = rawVariant.substring(1, rawVariant.length - 1);
 
-      if (content.trim().isEmpty) return [];
+      if (content.trim().isEmpty) {
+        return [];
+      }
 
       return content
           .split(',')
@@ -88,7 +91,7 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
       return Image.network(
         imagePath,
         width: double.infinity,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return _imageFallback();
         },
@@ -99,7 +102,7 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
       return Image.asset(
         imagePath,
         width: double.infinity,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return _imageFallback();
         },
@@ -270,9 +273,11 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
                               itemCount: reviews.length,
                               itemBuilder: (context, index) {
                                 final review = reviews[index];
+
                                 final rating =
                                     int.tryParse(review['rating'].toString()) ??
                                     0;
+
                                 final comment =
                                     review['ulasan']?.toString() ?? '';
 
@@ -449,7 +454,6 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
                   ),
                 ],
               ),
-
               if (alamatPenjual.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Row(
@@ -473,7 +477,6 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
                   ],
                 ),
               ],
-
               if (nomorHp.isNotEmpty) ...[
                 const SizedBox(height: 7),
                 Row(
@@ -492,13 +495,11 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
                   ],
                 ),
               ],
-
               const SizedBox(height: 10),
               _buildStoreStatus(sellerId),
               const SizedBox(height: 8),
               _buildSellerRating(sellerId),
               const SizedBox(height: 12),
-
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -525,6 +526,63 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
           ),
         );
       },
+    );
+  }
+
+  // =========================================================
+  // TAMBAH PRODUK KE KERANJANG
+  // =========================================================
+
+  void _addToCart({
+    required String name,
+    required String price,
+    required String imagePath,
+    required String selectedVariant,
+    required int stock,
+  }) {
+    if (stock <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Stok produk sedang habis.')),
+      );
+      return;
+    }
+
+    if (_quantity < 1 || _quantity > stock) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Jumlah produk harus antara 1 dan $stock.')),
+      );
+      return;
+    }
+
+    // Semua field produk asli tetap dipertahankan.
+    // Field tambahan menyamakan format dengan CartService.
+    final Map<String, dynamic> productToCart = {
+      ...widget.product,
+      'name': name,
+      'nama_produk': name,
+      'price': price,
+      'image': imagePath,
+      'variant': selectedVariant.isNotEmpty ? selectedVariant : 'Default',
+    };
+
+    // Produk hanya dimasukkan satu kali ke penyimpanan bersama.
+    CartService.instance.addProduct(productToCart, quantity: _quantity);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$name berhasil ditambahkan ke keranjang.'),
+        backgroundColor: primaryColor,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Buka keranjang tanpa mengirim ulang addedProduct.
+    // Dengan begitu, produk tidak terhitung dua kali.
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CartScreen()),
     );
   }
 
@@ -647,12 +705,12 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
 
             const SizedBox(height: 10),
 
-            // PROFIL, STATUS, RATING, CHAT DAN TOKO PENJUAL
+            // PROFIL PENJUAL
             _buildSellerSection(),
 
             const SizedBox(height: 12),
 
-            // DESKRIPSI PRODUK
+            // DESKRIPSI
             const Text(
               'Deskripsi Produk',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -691,6 +749,7 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
                     selectedColor: primaryColor.withValues(alpha: 0.15),
                     onSelected: (value) {
                       if (!value) return;
+
                       setState(() {
                         _selectedVariantIndex = index;
                       });
@@ -750,7 +809,7 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
         ),
       ),
 
-      // TOMBOL KERANJANG
+      // TOMBOL TAMBAH KE KERANJANG
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
         decoration: const BoxDecoration(
@@ -778,19 +837,12 @@ class _DetailProductScreenState extends State<DetailProductScreen> {
               ),
               onPressed: canBuy
                   ? () {
-                      final productToCart = <String, String>{
-                        ...widget.product,
-                        'varian_dipilih': selectedVariant,
-                      };
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CartScreen(
-                            addedProduct: productToCart,
-                            initialQuantity: _quantity,
-                          ),
-                        ),
+                      _addToCart(
+                        name: name,
+                        price: price,
+                        imagePath: imagePath,
+                        selectedVariant: selectedVariant,
+                        stock: stock,
                       );
                     }
                   : null,

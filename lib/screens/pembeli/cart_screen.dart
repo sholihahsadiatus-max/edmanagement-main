@@ -1,703 +1,350 @@
 import 'package:flutter/material.dart';
+import 'cart_service.dart';
 import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   final Map<String, dynamic>? addedProduct;
   final int? initialQuantity;
 
-  const CartScreen({
-    super.key,
-    this.addedProduct,
-    this.initialQuantity,
-  });
+  const CartScreen({super.key, this.addedProduct, this.initialQuantity});
 
   @override
   State<CartScreen> createState() => _CartScreenState();
 }
 
 class _CartScreenState extends State<CartScreen> {
+  final CartService cartService = CartService.instance;
+
   final Color primaryColor = const Color(0xFF006B42);
-
-  // ============================================================
-  // DATA KERANJANG
-  // ============================================================
-
-  final List<Map<String, dynamic>> cartItems = [
-    {
-      'name': 'Tas Rajut',
-      'variant': 'Hitam',
-      'price': 17000,
-      'quantity': 1,
-      'image': 'assets/tas_rajut.jpeg',
-      'isSelected': false,
-    },
-    {
-      'name': 'Keripik Pisang',
-      'variant': '250 g',
-      'price': 10000,
-      'quantity': 1,
-      'image': 'assets/keripik_pisang.jpeg',
-      'isSelected': false,
-    },
-  ];
-
-  // ============================================================
-  // INIT STATE
-  // ============================================================
+  final Color backgroundColor = const Color(0xFFF5F7F6);
 
   @override
   void initState() {
     super.initState();
 
-    // Jika halaman ini menerima produk dari halaman sebelumnya,
-    // produk tersebut akan ditambahkan ke keranjang.
     if (widget.addedProduct != null) {
-      final product =
-          Map<String, dynamic>.from(widget.addedProduct!);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
 
-      cartItems.add({
-        'name':
-            product['name'] ??
-            product['nama'] ??
-            'Produk',
+        cartService.addProduct(
+          widget.addedProduct!,
+          quantity: widget.initialQuantity ?? 1,
+        );
 
-        'variant':
-            product['variant'] ??
-            product['varian'] ??
-            'Default',
-
-        'price': _convertPrice(
-          product['price'] ??
-          product['harga'] ??
-          0,
-        ),
-
-        'quantity':
-            widget.initialQuantity ?? 1,
-
-        'image':
-            product['image'] ??
-            product['gambar'] ??
-            '',
-
-        'isSelected': true,
+        if (mounted) {
+          setState(() {});
+        }
       });
     }
   }
 
-  // ============================================================
-  // KONVERSI HARGA
-  // ============================================================
+  // ==================================================
+  // KONVERSI DATA
+  // ==================================================
 
-  int _convertPrice(dynamic price) {
-    if (price == null) {
-      return 0;
-    }
+  int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
 
-    if (price is int) {
-      return price;
-    }
-
-    if (price is double) {
-      return price.toInt();
-    }
-
-    return int.tryParse(
-          price
-              .toString()
-              .replaceAll(
-                RegExp(r'[^0-9]'),
-                '',
-              ),
-        ) ??
+    return int.tryParse(value.toString().replaceAll(RegExp(r'[^0-9]'), '')) ??
         0;
   }
 
-  // ============================================================
-  // TOTAL ITEM
-  // ============================================================
-
-  int get totalSelectedItems {
-    int total = 0;
-
-    for (final item in cartItems) {
-      if (item['isSelected'] == true) {
-        total += item['quantity'] as int;
-      }
-    }
-
-    return total;
+  String _formatRupiah(int price) {
+    return 'Rp${price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match match) => '${match[1]}.')}';
   }
 
-  // ============================================================
-  // TOTAL HARGA
-  // ============================================================
-
-  int get totalPrice {
-    int total = 0;
-
-    for (final item in cartItems) {
-      if (item['isSelected'] == true) {
-        total +=
-            (item['price'] as int) *
-            (item['quantity'] as int);
-      }
-    }
-
-    return total;
+  String _productName(Map<String, dynamic> item) {
+    return (item['name'] ?? item['nama_produk'] ?? item['nama'] ?? 'Produk')
+        .toString();
   }
 
-  // ============================================================
-  // FORMAT RUPIAH
-  // ============================================================
-
-  String formatRupiah(int number) {
-    return 'Rp${number.toString().replaceAllMapped(
-          RegExp(
-            r'(\d{1,3})(?=(\d{3})+(?!\d))',
-          ),
-          (Match m) => '${m[1]}.',
-        )}';
+  String _productVariant(Map<String, dynamic> item) {
+    return (item['variant'] ?? item['varian'] ?? 'Default').toString();
   }
 
-  // ============================================================
-  // TAMBAH JUMLAH
-  // ============================================================
-
-  void tambahQuantity(int index) {
-    setState(() {
-      cartItems[index]['quantity'] =
-          (cartItems[index]['quantity'] as int) + 1;
-    });
+  String _productImage(Map<String, dynamic> item) {
+    return (item['image'] ??
+            item['foto_url'] ??
+            item['foto_produk'] ??
+            item['gambar_produk'] ??
+            item['gambar'] ??
+            item['imageUrl'] ??
+            '')
+        .toString()
+        .trim();
   }
 
-  // ============================================================
-  // KURANGI JUMLAH
-  // ============================================================
-
-  void kurangiQuantity(int index) {
-    final int quantity =
-        cartItems[index]['quantity'] as int;
-
-    if (quantity > 1) {
-      setState(() {
-        cartItems[index]['quantity'] =
-            quantity - 1;
-      });
-    }
+  String _productStoreName(Map<String, dynamic> item) {
+    return (item['nama_toko'] ??
+            item['namaToko'] ??
+            item['seller_name'] ??
+            item['nama_penjual'] ??
+            item['nama_toko_penjual'] ??
+            'Toko UMKM')
+        .toString();
   }
 
-  // ============================================================
-  // HAPUS ITEM
-  // ============================================================
-
-  void hapusItem(int index) {
-    setState(() {
-      cartItems.removeAt(index);
-    });
+  int _productPrice(Map<String, dynamic> item) {
+    return _toInt(item['price'] ?? item['harga']);
   }
 
-  // ============================================================
-  // CHECKOUT
-  // ============================================================
+  int _productQuantity(Map<String, dynamic> item) {
+    final quantity = _toInt(item['quantity']);
+    return quantity < 1 ? 1 : quantity;
+  }
 
-  void checkout() {
-    // Ambil produk yang dicentang.
-    final selectedItems = cartItems
-        .where(
-          (item) => item['isSelected'] == true,
-        )
+  // ==================================================
+  // PRODUK YANG DIPILIH
+  // ==================================================
+
+  List<Map<String, dynamic>> _selectedItems() {
+    return cartService.items
+        .where((item) => item['isSelected'] == true)
         .toList();
+  }
 
-    // Jika tidak ada produk yang dipilih.
-    if (selectedItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Pilih produk terlebih dahulu',
-          ),
+  int _selectedTotal() {
+    return _selectedItems().fold<int>(
+      0,
+      (total, item) => total + (_productPrice(item) * _productQuantity(item)),
+    );
+  }
+
+  bool get _allSelected {
+    if (cartService.items.isEmpty) return false;
+
+    return cartService.items.every((item) => item['isSelected'] == true);
+  }
+
+  // ==================================================
+  // GAMBAR PRODUK
+  // ==================================================
+
+  Widget _buildProductImage(String image) {
+    if (image.isEmpty) {
+      return Container(
+        color: Colors.grey.shade100,
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.image_outlined,
+          color: Colors.grey.shade400,
+          size: 42,
         ),
       );
+    }
 
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return Image.network(
+        image,
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return _imageError();
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+
+          return const Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+      );
+    }
+
+    return Image.asset(
+      image,
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (context, error, stackTrace) {
+        return _imageError();
+      },
+    );
+  }
+
+  Widget _imageError() {
+    return Container(
+      color: Colors.grey.shade100,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.broken_image_outlined,
+        color: Colors.grey.shade400,
+        size: 38,
+      ),
+    );
+  }
+
+  // ==================================================
+  // PILIH SEMUA PRODUK
+  // ==================================================
+
+  void _toggleSelectAll(bool? value) {
+    setState(() {
+      for (final item in cartService.items) {
+        item['isSelected'] = value ?? false;
+      }
+    });
+  }
+
+  // ==================================================
+  // PILIH PRODUK
+  // ==================================================
+
+  void _toggleProductSelection(Map<String, dynamic> item, bool? value) {
+    setState(() {
+      item['isSelected'] = value ?? false;
+    });
+  }
+
+  // ==================================================
+  // QUANTITY
+  // ==================================================
+
+  void _changeQuantity(Map<String, dynamic> item, int change) {
+    setState(() {
+      final currentQuantity = _productQuantity(item);
+      final newQuantity = currentQuantity + change;
+
+      if (newQuantity >= 1) {
+        item['quantity'] = newQuantity;
+      }
+    });
+  }
+
+  // ==================================================
+  // HAPUS PRODUK
+  // ==================================================
+
+  Future<void> _confirmDelete(Map<String, dynamic> item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Hapus Produk'),
+          content: Text(
+            'Apakah Anda yakin ingin menghapus '
+            '${_productName(item)} dari keranjang?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      cartService.items.remove(item);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Produk berhasil dihapus dari keranjang')),
+    );
+  }
+
+  // ==================================================
+  // CHECKOUT
+  // ==================================================
+
+  void _checkout() {
+    final selected = _selectedItems();
+
+    if (selected.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih minimal satu produk untuk checkout'),
+        ),
+      );
       return;
     }
 
-    // Ubah format data CartScreen
-    // menjadi format orderItems
-    // yang digunakan CheckoutScreen.
-    final List<Map<String, dynamic>> orderItems =
-        selectedItems.map((item) {
-      final int price =
-          item['price'] as int;
+    final totalPrice = _selectedTotal();
 
-      final int quantity =
-          item['quantity'] as int;
+    // Pastikan seller_id ikut dikirim dari keranjang ke checkout.
+    final List<Map<String, dynamic>> orderItems = selected.map((item) {
+      final quantity = _productQuantity(item);
+      final unitPrice = _productPrice(item);
+      final image = _productImage(item);
+      final namaToko = _productStoreName(item);
 
-      return {
-        'name': item['name'],
-        'variant': item['variant'],
+      final sellerId =
+          (item['seller_id'] ?? item['sellerId'] ?? item['penjual_id'] ?? '')
+              .toString()
+              .trim();
+
+      return <String, dynamic>{
+        'id': item['id'],
+
+        // ID penjual diperlukan untuk mencari nomor WhatsApp.
+        'seller_id': sellerId,
+        'sellerId': sellerId,
+        'penjual_id': sellerId,
+
+        'name': _productName(item),
+        'nama_produk': item['nama_produk'] ?? _productName(item),
+
+        'variant': _productVariant(item),
+        'varian': _productVariant(item),
+
         'qty': quantity,
-        'price': formatRupiah(
-          price * quantity,
-        ),
+        'quantity': quantity,
+
+        'price': unitPrice,
+        'harga': unitPrice,
+        'unitPrice': unitPrice,
+
+        'image': image,
+        'foto_url': item['foto_url'] ?? image,
+        'foto_produk': item['foto_produk'] ?? image,
+        'gambar_produk': item['gambar_produk'] ?? image,
+        'gambar': item['gambar'] ?? image,
+        'imageUrl': item['imageUrl'] ?? image,
+
+        'nama_toko': namaToko,
+        'namaToko': namaToko,
+        'seller_name': namaToko,
+        'nama_penjual': namaToko,
+        'nama_toko_penjual': namaToko,
+
+        'lineTotal': unitPrice * quantity,
+        'subtotal': unitPrice * quantity,
       };
     }).toList();
-
-    // ========================================================
-    // MASUK KE CHECKOUT
-    // ========================================================
 
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CheckoutScreen(
-          totalPrice: totalPrice,
-          orderItems: orderItems,
-        ),
+        builder: (context) =>
+            CheckoutScreen(totalPrice: totalPrice, orderItems: orderItems),
       ),
     );
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-
-      // ========================================================
-      // APP BAR
-      // ========================================================
-
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back,
-            color: Colors.black,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-
-        title: const Text(
-          'Keranjang',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-
-        centerTitle: true,
-
-        bottom: PreferredSize(
-          preferredSize:
-              const Size.fromHeight(1),
-
-          child: Container(
-            height: 1,
-            color: Colors.grey.shade200,
-          ),
-        ),
-      ),
-
-      // ========================================================
-      // BODY
-      // ========================================================
-
-      body: cartItems.isEmpty
-          ? _buildEmptyCart()
-          : ListView.separated(
-              padding:
-                  const EdgeInsets.symmetric(
-                vertical: 12,
-              ),
-
-              itemCount:
-                  cartItems.length,
-
-              separatorBuilder:
-                  (context, index) {
-                return Divider(
-                  color:
-                      Colors.grey.shade200,
-                  height: 24,
-                );
-              },
-
-              itemBuilder:
-                  (context, index) {
-                return _buildCartItem(
-                  index,
-                );
-              },
-            ),
-
-      // ========================================================
-      // BOTTOM CHECKOUT
-      // ========================================================
-
-      bottomNavigationBar:
-          cartItems.isEmpty
-              ? null
-              : _buildBottomCheckout(),
-    );
-  }
-
-  // ============================================================
-  // KERANJANG KOSONG
-  // ============================================================
-
-  Widget _buildEmptyCart() {
-    return Center(
-      child: Column(
-        mainAxisAlignment:
-            MainAxisAlignment.center,
-
-        children: [
-          Icon(
-            Icons
-                .shopping_cart_outlined,
-            size: 80,
-            color:
-                Colors.grey.shade300,
-          ),
-
-          const SizedBox(
-            height: 16,
-          ),
-
-          const Text(
-            'Keranjang masih kosong',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight:
-                  FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(
-            height: 8,
-          ),
-
-          Text(
-            'Tambahkan produk terlebih dahulu',
-            style: TextStyle(
-              fontSize: 13,
-              color:
-                  Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ITEM KERANJANG
-  // ============================================================
-
-  Widget _buildCartItem(int index) {
-    final item = cartItems[index];
-
-    return Padding(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 16,
-      ),
-
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-
-        children: [
-          // ====================================================
-          // CHECKBOX
-          // ====================================================
-
-          Checkbox(
-            value:
-                item['isSelected'] == true,
-
-            activeColor:
-                primaryColor,
-
-            shape:
-                RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(
-                4,
-              ),
-            ),
-
-            onChanged: (value) {
-              setState(() {
-                item['isSelected'] =
-                    value ?? false;
-              });
-            },
-          ),
-
-          const SizedBox(
-            width: 4,
-          ),
-
-          // ====================================================
-          // GAMBAR
-          // ====================================================
-
-          _buildProductImage(item),
-
-          const SizedBox(
-            width: 12,
-          ),
-
-          // ====================================================
-          // INFORMASI PRODUK
-          // ====================================================
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
-              children: [
-                Text(
-                  item['name']
-                      .toString(),
-
-                  maxLines: 2,
-
-                  overflow:
-                      TextOverflow.ellipsis,
-
-                  style:
-                      const TextStyle(
-                    fontSize: 14,
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 4,
-                ),
-
-                Text(
-                  item['variant']
-                      .toString(),
-
-                  style:
-                      const TextStyle(
-                    fontSize: 12,
-                    color:
-                        Colors.grey,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 4,
-                ),
-
-                Text(
-                  formatRupiah(
-                    item['price']
-                        as int,
-                  ),
-
-                  style:
-                      TextStyle(
-                    fontSize: 13,
-                    fontWeight:
-                        FontWeight.bold,
-                    color:
-                        primaryColor,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 8,
-                ),
-
-                // ==================================================
-                // QUANTITY
-                // ==================================================
-
-                Row(
-                  children: [
-                    _quantityButton(
-                      icon:
-                          Icons.remove,
-
-                      onTap: () {
-                        kurangiQuantity(
-                          index,
-                        );
-                      },
-                    ),
-
-                    Container(
-                      width: 35,
-
-                      alignment:
-                          Alignment.center,
-
-                      child: Text(
-                        '${item['quantity']}',
-
-                        style:
-                            const TextStyle(
-                          fontSize: 13,
-                          fontWeight:
-                              FontWeight.bold,
-                        ),
-                      ),
-                    ),
-
-                    _quantityButton(
-                      icon:
-                          Icons.add,
-
-                      onTap: () {
-                        tambahQuantity(
-                          index,
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // ====================================================
-          // HAPUS
-          // ====================================================
-
-          IconButton(
-            icon: Icon(
-              Icons
-                  .delete_outline,
-
-              color:
-                  Colors.grey.shade600,
-            ),
-
-            onPressed: () {
-              hapusItem(index);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // GAMBAR PRODUK
-  // ============================================================
-
-  Widget _buildProductImage(
-    Map<String, dynamic> item,
-  ) {
-    final String image =
-        item['image']
-                ?.toString() ??
-            '';
-
-    // Jika tidak ada gambar.
-    if (image.isEmpty) {
-      return _imagePlaceholder();
-    }
-
-    // Jika gambar berasal dari assets.
-    if (image.startsWith(
-      'assets/',
-    )) {
-      return ClipRRect(
-        borderRadius:
-            BorderRadius.circular(
-          8,
-        ),
-
-        child: Image.asset(
-          image,
-
-          width: 70,
-          height: 70,
-
-          fit: BoxFit.cover,
-
-          errorBuilder:
-              (context, error,
-                  stackTrace) {
-            return _imagePlaceholder();
-          },
-        ),
-      );
-    }
-
-    // Jika gambar berasal dari URL.
-    return ClipRRect(
-      borderRadius:
-          BorderRadius.circular(
-        8,
-      ),
-
-      child: Image.network(
-        image,
-
-        width: 70,
-        height: 70,
-
-        fit: BoxFit.cover,
-
-        errorBuilder:
-            (context, error,
-                stackTrace) {
-          return _imagePlaceholder();
-        },
-      ),
-    );
-  }
-
-  // ============================================================
-  // PLACEHOLDER GAMBAR
-  // ============================================================
-
-  Widget _imagePlaceholder() {
-    return Container(
-      width: 70,
-      height: 70,
-
-      decoration:
-          BoxDecoration(
-        color:
-            Colors.grey.shade200,
-
-        borderRadius:
-            BorderRadius.circular(
-          8,
-        ),
-      ),
-
-      child: const Icon(
-        Icons
-            .image_outlined,
-
-        color: Colors.grey,
-      ),
-    );
-  }
-
-  // ============================================================
-  // TOMBOL + DAN -
-  // ============================================================
+  // ==================================================
+  // TOMBOL QUANTITY
+  // ==================================================
 
   Widget _quantityButton({
     required IconData icon,
@@ -705,157 +352,362 @@ class _CartScreenState extends State<CartScreen> {
   }) {
     return InkWell(
       onTap: onTap,
-
-      borderRadius:
-          BorderRadius.circular(
-        6,
-      ),
-
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         width: 30,
         height: 30,
-
-        decoration:
-            BoxDecoration(
-          color:
-              Colors.grey.shade100,
-
-          borderRadius:
-              BorderRadius.circular(
-            6,
-          ),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
         ),
-
-        child: Icon(
-          icon,
-          size: 16,
-        ),
+        alignment: Alignment.center,
+        child: Icon(icon, size: 17, color: primaryColor),
       ),
     );
   }
 
-  // ============================================================
-  // BAGIAN BAWAH
-  // ============================================================
+  // ==================================================
+  // KARTU PRODUK
+  // ==================================================
 
-  Widget _buildBottomCheckout() {
+  Widget _buildCartItem(Map<String, dynamic> item) {
+    final image = _productImage(item);
+    final name = _productName(item);
+    final variant = _productVariant(item);
+    final storeName = _productStoreName(item);
+    final price = _productPrice(item);
+    final quantity = _productQuantity(item);
+
     return Container(
-      padding:
-          const EdgeInsets.all(
-        16,
-      ),
-
-      decoration:
-          BoxDecoration(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
         color: Colors.white,
-
-        border: Border(
-          top: BorderSide(
-            color:
-                Colors.grey.shade200,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
       ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Checkbox(
+            value: item['isSelected'] == true,
+            activeColor: primaryColor,
+            onChanged: (value) {
+              _toggleProductSelection(item, value);
+            },
+          ),
 
-      child: SafeArea(
-        child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: 90,
+              height: 100,
+              color: Colors.grey.shade50,
+              padding: const EdgeInsets.all(4),
+              child: _buildProductImage(image),
+            ),
+          ),
 
-          children: [
-            // ==================================================
-            // TOTAL
-            // ==================================================
+          const SizedBox(width: 12),
 
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment
-                      .spaceBetween,
-
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Total ($totalSelectedItems item)',
+                  storeName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
 
-                  style:
-                      const TextStyle(
+                const SizedBox(height: 5),
+
+                Text(
+                  name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     fontSize: 14,
-                    color:
-                        Colors.black54,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
 
-                Text(
-                  formatRupiah(
-                    totalPrice,
-                  ),
+                const SizedBox(height: 4),
 
-                  style:
-                      const TextStyle(
-                    fontSize: 16,
-                    fontWeight:
-                        FontWeight.bold,
+                Text(
+                  variant,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+
+                const SizedBox(height: 7),
+
+                Text(
+                  _formatRupiah(price),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+
+                const SizedBox(height: 9),
+
+                Row(
+                  children: [
+                    _quantityButton(
+                      icon: Icons.remove,
+                      onTap: () {
+                        _changeQuantity(item, -1);
+                      },
+                    ),
+
+                    SizedBox(
+                      width: 34,
+                      child: Text(
+                        '$quantity',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+
+                    _quantityButton(
+                      icon: Icons.add,
+                      onTap: () {
+                        _changeQuantity(item, 1);
+                      },
+                    ),
+
+                    const Spacer(),
+
+                    IconButton(
+                      tooltip: 'Hapus produk',
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      onPressed: () {
+                        _confirmDelete(item);
+                      },
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                        size: 21,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================================================
+  // RINGKASAN TOTAL
+  // ==================================================
+
+  Widget _buildTotalSection() {
+    final total = _selectedTotal();
+    final selectedCount = _selectedItems().length;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Produk dipilih', style: TextStyle(fontSize: 13)),
+                ),
+                Text(
+                  '$selectedCount produk',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 9),
+
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Total pembayaran',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Text(
+                  _formatRupiah(total),
+                  style: TextStyle(
+                    color: primaryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(
-              height: 12,
-            ),
-
-            // ==================================================
-            // TOMBOL CHECKOUT
-            // ==================================================
+            const SizedBox(height: 14),
 
             SizedBox(
-              width:
-                  double.infinity,
-
+              width: double.infinity,
               height: 48,
-
-              child:
-                  ElevatedButton(
-                onPressed:
-                    totalSelectedItems >
-                            0
-                        ? checkout
-                        : null,
-
-                style:
-                    ElevatedButton
-                        .styleFrom(
-                  backgroundColor:
-                      primaryColor,
-
-                  disabledBackgroundColor:
-                      Colors.grey
-                          .shade300,
-
+              child: ElevatedButton(
+                onPressed: _checkout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
                   elevation: 0,
-
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      8,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-
-                child:
-                    const Text(
+                child: const Text(
                   'Checkout',
-
-                  style:
-                      TextStyle(
-                    color:
-                        Colors.white,
-                    fontSize: 15,
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==================================================
+  // TAMPILAN KERANJANG
+  // ==================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final items = cartService.items;
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 0,
+        centerTitle: false,
+        title: const Text(
+          'Keranjang Saya',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: Colors.grey.shade200, height: 1),
+        ),
+      ),
+      body: items.isEmpty
+          ? _buildEmptyCart()
+          : Column(
+              children: [
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Checkbox(
+                        value: _allSelected,
+                        activeColor: primaryColor,
+                        onChanged: _toggleSelectAll,
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Pilih semua produk',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      Text(
+                        '${items.length} produk',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: items.length,
+                    itemBuilder: (context, index) {
+                      return _buildCartItem(items[index]);
+                    },
+                  ),
+                ),
+
+                _buildTotalSection(),
+              ],
+            ),
+    );
+  }
+
+  // ==================================================
+  // KERANJANG KOSONG
+  // ==================================================
+
+  Widget _buildEmptyCart() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.shopping_cart_outlined,
+              size: 76,
+              color: Colors.grey.shade400,
+            ),
+
+            const SizedBox(height: 16),
+
+            const Text(
+              'Keranjang masih kosong',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              'Yuk, pilih produk UMKM yang Anda inginkan.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            ),
+
+            const SizedBox(height: 20),
+
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: primaryColor,
+                side: BorderSide(color: primaryColor),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Mulai Belanja'),
             ),
           ],
         ),

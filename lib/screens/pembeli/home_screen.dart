@@ -213,8 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final Map<String, String> namaPenjualMap = {};
 
-      // Ambil profil penjual secara terpisah agar pengambilan
-      // katalog produk tidak bergantung pada nested join.
+      // Ambil profil penjual secara terpisah.
       if (sellerIds.isNotEmpty) {
         try {
           final profiles = await supabase
@@ -240,12 +239,9 @@ class _HomeScreenState extends State<HomeScreen> {
       // Gabungkan data produk dengan nama penjual.
       return produkDatabase.map((produk) {
         final sellerId = produk['seller_id']?.toString() ?? '';
-
         final namaProduk = produk['nama_produk']?.toString() ?? '';
-
         final harga = produk['harga'];
         final fotoUrl = produk['foto_url']?.toString() ?? '';
-
         final varian = produk['varian'];
 
         return <String, String>{
@@ -281,11 +277,13 @@ class _HomeScreenState extends State<HomeScreen> {
   // REFRESH PRODUK
   // ==========================================
   Future<void> _refreshProduk() async {
+    final future = _getProdukTersedia();
+
     setState(() {
-      _produkFuture = _getProdukTersedia();
+      _produkFuture = future;
     });
 
-    await _produkFuture;
+    await future;
   }
 
   // ==========================================
@@ -331,11 +329,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // ==========================================
   // BUKA DETAIL PRODUK
   // ==========================================
-  void _openDetail(Map<String, String> item) {
+  // FUNGSI INI DIGUNAKAN UNTUK MEMBUKA DETAIL
+  // PRODUK DARI HASIL PENCARIAN MAUPUN KARTU.
+  // ==========================================
+  void _openProduct(Map<String, String> product) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DetailProductScreen(product: item),
+        builder: (context) => DetailProductScreen(product: product),
       ),
     );
   }
@@ -409,8 +410,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final namaPenjual = item['nama_penjual'] ?? 'Penjual UMKM';
 
     return GestureDetector(
+      // KLIK KARTU PRODUK MEMBUKA DETAIL PRODUK
       onTap: () {
-        _openDetail(item);
+        _openProduct(item);
       },
       child: Container(
         decoration: BoxDecoration(
@@ -566,7 +568,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 20),
 
-              // SEARCH
+              // ==========================================
+              // PENCARIAN PRODUK
+              // ==========================================
               TextField(
                 controller: _searchController,
                 onChanged: (value) {
@@ -585,6 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? IconButton(
                           onPressed: () {
                             _searchController.clear();
+
                             setState(() {
                               _searchQuery = '';
                             });
@@ -610,7 +615,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 24),
 
+              // ==========================================
               // KATEGORI
+              // ==========================================
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: categories.map((cat) {
@@ -644,7 +651,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 28),
 
+              // ==========================================
               // JUDUL PRODUK
+              // ==========================================
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -668,7 +677,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
               const SizedBox(height: 16),
 
-              // GRID PRODUK
+              // ==========================================
+              // GRID PRODUK DAN HASIL PENCARIAN
+              // ==========================================
               FutureBuilder<List<Map<String, String>>>(
                 future: _produkFuture,
                 builder: (context, snapshot) {
@@ -701,6 +712,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   final semuaProduk = snapshot.data ?? products;
 
+                  // FILTER BERDASARKAN PENCARIAN
                   final hasilPencarian = semuaProduk.where((item) {
                     final nama = (item['name'] ?? '').toLowerCase();
                     final kategori = (item['kategori'] ?? '').toLowerCase();
@@ -733,6 +745,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                     itemBuilder: (context, index) {
                       final item = hasilPencarian[index];
+
+                      // HASIL PENCARIAN TETAP MENGGUNAKAN
+                      // KARTU YANG TERHUBUNG KE _openProduct()
                       return _buildProductCard(item);
                     },
                   );
@@ -762,7 +777,9 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : _buildHomeContent(),
 
+      // ==========================================
       // BOTTOM NAVIGATION
+      // ==========================================
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onBottomNavigationTap,
