@@ -890,9 +890,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // BUAT PESANAN LAMA - TETAP DIPERTAHANKAN
   // =========================================================
 
-  Future<void> _buatPesanan() async {
-    if (_isProcessing) return;
+  // =========================================================
+  // BUAT PESANAN - REVISI: SIMPAN KE SUPABASE
+  // =========================================================
 
+  Future<void> _buatPesanan() async {
+    debugPrint('CHECKOUT 1: Fungsi _buatPesanan dimulai');
+
+    // Mencegah pesanan dikirim berulang kali.
+    if (_isProcessing) {
+      debugPrint('CHECKOUT: Proses pesanan masih berjalan.');
+      return;
+    }
+
+    // Validasi profil pembeli.
     if (_isLoadingProfile || _profileError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -902,6 +913,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    // Validasi keranjang.
     if (widget.orderItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tidak ada produk untuk dipesan.')),
@@ -909,12 +921,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    if (_namaController.text.trim().isEmpty ||
-        _teleponController.text.trim().isEmpty ||
-        _alamatController.text.trim().isEmpty) {
+    // Validasi nama, telepon, dan alamat.
+    final nama = _namaController.text.trim();
+    final telepon = _teleponController.text.trim();
+    final alamat = _alamatController.text.trim();
+
+    if (nama.isEmpty || telepon.isEmpty || alamat.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lengkapi nama, nomor telepon, dan alamat.'),
+        ),
+      );
+      return;
+    }
+
+    // Pastikan pembeli sudah login.
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sesi login berakhir. Silakan login kembali.'),
         ),
       );
       return;
@@ -925,11 +952,120 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
 
     try {
+      debugPrint('CHECKOUT 2: Menyiapkan data pesanan');
+
+      // Siapkan data produk untuk fungsi RPC Supabase.
+      final List<Map<String, dynamic>> items = [];
+
+      debugPrint('DATA ORDER ITEMS: ${widget.orderItems}');
+
+      for (final item in widget.orderItems) {
+        final sellerId = _itemSellerId(item);
+
+        if (sellerId.isEmpty) {
+          throw Exception(
+            'ID penjual produk "${_itemName(item)}" tidak ditemukan. '
+            'Periksa data produk dan keranjang.',
+          );
+        }
+
+        final quantity = _itemQuantity(item);
+        final unitPrice = _itemUnitPrice(item);
+
+        if (unitPrice <= 0) {
+          throw Exception('Harga produk "${_itemName(item)}" tidak valid.');
+        }
+
+        // Pertahankan ID produk jika tersedia di data keranjang.
+        final productId =
+            item['product_id'] ??
+            item['productId'] ??
+            item['produk_id'] ??
+            item['id_produk'] ??
+            item['id'];
+        // TAMBAHAN: periksa ID sebelum dikirim ke Supabase.
+        debugPrint('ID PRODUK YANG DIKIRIM: $productId');
+        debugPrint('ID PENJUAL YANG DIKIRIM: $sellerId');
+
+        if (unitPrice <= 0) {
+          throw Exception('Harga produk "${_itemName(item)}" tidak valid.');
+        }
+
+        items.add({
+          'seller_id': sellerId,
+          'product_id': productId,
+          'name': _itemName(item),
+          'variant': _itemVariant(item),
+          'quantity': quantity,
+          'unit_price': unitPrice,
+          'image': _itemImage(item),
+        });
+      }
+
+      debugPrint('CHECKOUT 3: Mengirim ${items.length} item ke Supabase');
+
+      // Simpan pesanan melalui fungsi SQL buat_pesanan.
+      final response = await supabase.rpc(
+        'buat_pesanan',
+        params: {
+          'p_nama': nama,
+          'p_telepon': telepon,
+          'p_alamat': alamat,
+          'p_items': items,
+        },
+      );
+
+      debugPrint('CHECKOUT 4: Respons Supabase = $response');
+
+      // Fungsi SQL harus mengembalikan ID pesanan.
+      if (response is! List || response.isEmpty) {
+        throw Exception(
+          'Pesanan belum dapat dikonfirmasi. '
+          'Periksa fungsi SQL buat_pesanan di Supabase.',
+        );
+      }
+
+      final orderIds = response.map((id) => id.toString()).toList();
+
+      debugPrint(
+        'CHECKOUT 5: Pesanan berhasil disimpan. '
+        'ID pesanan = $orderIds',
+      );
+
       if (!mounted) return;
 
-      await Navigator.push(
+      // Buka halaman sukses hanya setelah RPC berhasil.
+      await Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const SuccessScreen()),
+        MaterialPageRoute(
+          builder: (context) => SuccessScreen(orderIds: orderIds),
+        ),
+      );
+    } on PostgrestException catch (error) {
+      debugPrint('CHECKOUT ERROR SUPABASE: ${error.message}');
+      debugPrint('CHECKOUT ERROR CODE: ${error.code}');
+      debugPrint('CHECKOUT ERROR DETAILS: ${error.details}');
+      debugPrint('CHECKOUT ERROR HINT: ${error.hint}');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal menyimpan pesanan: ${error.message}'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('CHECKOUT ERROR: $error');
+      debugPrint('CHECKOUT STACKTRACE: $stackTrace');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Pesanan gagal diproses: $error'),
+          duration: const Duration(seconds: 5),
+        ),
       );
     } finally {
       if (mounted) {
